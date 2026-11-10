@@ -3,9 +3,10 @@ import {
   checkProviderStatus,
   listDirectory,
   inspectFile,
+  buildMovieCatalog,
 } from "./providers/sermovie/index.js";
 
-const VERSION = "0.4.0";
+const VERSION = "0.5.0";
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data, null, 2), {
@@ -131,6 +132,39 @@ export default {
           "PATH_NOT_ALLOWED",
           "NOT_A_FILE",
           "FILE_TYPE_NOT_ALLOWED",
+        ].includes(error.message);
+
+        return json({
+          success: false,
+          error: error.message,
+        }, isInvalid ? 400 : 502);
+      }
+    }
+
+    if (url.pathname === "/api/v1/providers/sermovie/movie") {
+      const path = url.searchParams.get("path");
+
+      if (!path) {
+        return json({
+          success: false,
+          error: "MISSING_PATH",
+          message: "Please provide a movie directory path.",
+        }, 400);
+      }
+
+      try {
+        const result = await buildMovieCatalog(path);
+
+        return json({
+          success: true,
+          provider: "sermovie",
+          movie: result,
+        });
+      } catch (error) {
+        const isInvalid = [
+          "INVALID_PATH",
+          "PATH_NOT_ALLOWED",
+          "INVALID_MOVIE_PATH",
         ].includes(error.message);
 
         return json({
