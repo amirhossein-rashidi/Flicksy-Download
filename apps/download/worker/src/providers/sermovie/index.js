@@ -23,6 +23,21 @@ async function checkDirectory(path) {
       signal: AbortSignal.timeout(10000),
     });
 
+    const finalUrl = new URL(response.url);
+
+    if (finalUrl.origin !== new URL(BASE_URL).origin) {
+      await response.body?.cancel();
+
+      return {
+        status: response.status,
+        accessible: false,
+        listingDetected: false,
+        count: 0,
+        entries: [],
+        error: "REDIRECT_BLOCKED",
+      };
+    }
+
     const result = {
       status: response.status,
       accessible: response.ok,
