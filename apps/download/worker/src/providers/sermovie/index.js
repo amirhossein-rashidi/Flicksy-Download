@@ -75,7 +75,7 @@ async function fetchDirectory(url) {
   for (let attempt = 0; attempt <= 3; attempt++) {
     const response = await fetch(currentUrl.toString(), {
       headers: {
-        "User-Agent": "FlicksyDownload/0.3.0",
+        "User-Agent": "FlicksyDownload/0.4.0",
         Accept: "text/html",
       },
       redirect: "manual",
@@ -142,7 +142,7 @@ async function fetchFileSize(url) {
     const response = await fetch(currentUrl.toString(), {
       method: "GET",
       headers: {
-        "User-Agent": "FlicksyDownload/0.3.0",
+        "User-Agent": "FlicksyDownload/0.4.0",
         Range: "bytes=0-0",
       },
       redirect: "manual",
@@ -253,6 +253,165 @@ export async function inspectFile(path) {
     sizeMethod: fileInfo.method,
     rangeSupported: fileInfo.rangeSupported,
     downloadUrl: fileInfo.downloadUrl,
+  };
+}
+
+function makeStableId(path) {
+  return `sermovie-${path
+    .toLowerCase()
+    .replace(/^\/+|\/+$/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")}`;
+}
+
+function titleFromFolder(folderName) {
+  return folderName
+    .replace(/[._]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function getReleaseYear(entries) {
+  const years = new Set();
+
+  for (const entry of entries) {
+    const match = entry.name.match(
+      /(?:^|[._\s])((?:19|20)\d{2})(?=[._\s])/ 
+    );
+
+    if (match) {
+      years.add(Number(match[1]));
+    }
+  }
+
+  return years.size === 1 ? [...years][0] : null;
+}
+
+function makeDirectUrl(path) {
+  const url = new URL(path, BASE_URL);
+
+  if (url.origin !== BASE_ORIGIN) {
+    throw new Error("REDIRECT_BLOCKED");
+  }
+
+  return url.toString();
+}
+
+async function listOptionalDirectory(path) {
+  try {
+    return await listDirectory(path);
+  } catch (error) {
+    return {
+      path,
+      count: 0,
+      entries: [],
+      error: error.message,
+    };
+  }
+}
+
+export async function buildMovieCatalog(path) {
+  const movieUrl = validatePath(path);
+  const segments = movieUrl.pathname.split("/").filter(Boolean);
+
+  if (
+    segments.length !== 3 ||
+    segments[0] !== "Movies" ||
+    movieUrl.pathname.endsWith("/")
+  ) {
+    throw new Error("INVALID_MOVIE_PATH");
+  }
+
+  const archiveYear = segments[1];
+  const folderName = decodeURIComponent(segments[2]);
+  const moviePath = `${movieUrl.pathname}/`;
+
+  const root = await listDirectory(moviePath);
+
+  const webFolder = root.entries.find(
+    (entry) => entry.isDirectory && entry.name.replace(/\/$/, "") === "Web"
+  );
+
+  const subFolder = root.entries.find(
+    (entry) => entry.isDirectory && entry.name.replace(/\/$/, "") === "Sub"
+  );
+
+  const webResult = webFolder
+    ? await listOptionalDirectory(webFolder.path)
+    : { entries: [], count: 0, error: "WEB_FOLDER_NOT_FOUND" };
+
+  const subResult = subFolder
+    ? await listOptionalDirectory(subFolder.path)
+    : { entries: [], count: 0, error: "SUB_FOLDER_NOT_FOUND" };
+
+  const qualityFolders = webResult.entries.filter(
+    (entry) => entry.isDirectory
+  );
+
+  const qualityResults = await Promise.all(
+    qualityFolders.map(async (folder) => ({
+      folder: folder.name.replace(/\/$/, ""),
+      result: await listOptionalDirectory(folder.path),
+    }))
+  );
+
+  const downloads = [];
+
+  for (const item of qualityResults) {
+    for (const entry of item.result.entries) {
+      if (entry.isDirectory) continue;
+
+      const metadata = entry.metadata || parseFilename(entry.name, entry.path);
+
+      if (metadata.mediaType !== "video") continue;
+
+      downloads.push({
+        id: makeStableId(entry.path),
+        name: entry.name,
+        path: entry.path,
+        qualityFolder: item.folder,
+        metadata,
+        sizeBytes: null,
+        downloadUrl: makeDirectUrl(entry.path),
+      });
+    }
+  }
+
+  const subtitles = subResult.entries
+    .filter((entry) => !entry.isDirectory)
+    .map((entry) => {
+      const metadata = entry.metadata || parseFilename(entry.name, entry.path);
+
+      return {
+        id: makeStableId(entry.path),
+        name: entry.name,
+        path: entry.path,
+        format: metadata.extension,
+        language: "unknown",
+        sizeBytes: null,
+        downloadUrl: makeDirectUrl(entry.path),
+      };
+    });
+
+  return {
+    id: makeStableId(moviePath),
+    type: "movie",
+    provider: "sermovie",
+    title: titleFromFolder(folderName),
+    archiveYear,
+    releaseYear: getReleaseYear(downloads),
+    path: moviePath,
+    downloadCount: downloads.length,
+    subtitleCount: subtitles.length,
+    downloads,
+    subtitles,
+    warnings: [
+      ...(webResult.error ? [webResult.error] : []),
+      ...(subResult.error ? [subResult.error] : []),
+      ...qualityResults
+        .filter((item) => item.result.error)
+        .map((item) => `${item.folder}: ${item.result.error}`),
+    ],
   };
 }
 
