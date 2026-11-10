@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#090b16">
+  <meta name="description" content="Flicksy Download؛ جست‌وجو و دانلود فیلم و سریال">
+  <title>Flicksy Download</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./style.css">
+  <script src="./app.js" defer></script>
+</head>
+<body>
+  <div class="ambient ambient-one"></div>
+  <div class="ambient ambient-two"></div>
+
+  <header class="topbar">
+    <a class="brand" href="./" aria-label="Flicksy Download">
+      <span class="brand-mark">F</span>
+      <span class="brand-name">Flicksy<span>Download</span></span>
+    </a>
+
+    <div class="header-status">
+      <span class="status-dot" id="apiDot"></span>
+      <span id="apiStatus">در حال اتصال</span>
+    </div>
+  </header>
+
+  <main id="app">
+    <section class="loading-screen">
+      <div class="loader"></div>
+      <p>در حال آماده‌سازی آرشیو...</p>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <span>Flicksy Download</span>
+    <span>Independent download platform</span>
+  </footer>
+
+  <div id="toast" class="toast" role="status"></div>
+</body>
+</html>
