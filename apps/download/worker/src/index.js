@@ -2,9 +2,10 @@
 import {
   checkProviderStatus,
   listDirectory,
+  inspectFile,
 } from "./providers/sermovie/index.js";
 
-const VERSION = "0.3.0";
+const VERSION = "0.4.0";
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data, null, 2), {
@@ -93,9 +94,44 @@ export default {
           directory: result,
         });
       } catch (error) {
-        const isInvalid =
-          error.message === "INVALID_PATH" ||
-          error.message === "PATH_NOT_ALLOWED";
+        const isInvalid = [
+          "INVALID_PATH",
+          "PATH_NOT_ALLOWED",
+        ].includes(error.message);
+
+        return json({
+          success: false,
+          error: error.message,
+        }, isInvalid ? 400 : 502);
+      }
+    }
+
+    if (url.pathname === "/api/v1/providers/sermovie/file-info") {
+      const path = url.searchParams.get("path");
+
+      if (!path) {
+        return json({
+          success: false,
+          error: "MISSING_PATH",
+          message: "Please provide a file path.",
+        }, 400);
+      }
+
+      try {
+        const result = await inspectFile(path);
+
+        return json({
+          success: true,
+          provider: "sermovie",
+          file: result,
+        });
+      } catch (error) {
+        const isInvalid = [
+          "INVALID_PATH",
+          "PATH_NOT_ALLOWED",
+          "NOT_A_FILE",
+          "FILE_TYPE_NOT_ALLOWED",
+        ].includes(error.message);
 
         return json({
           success: false,
