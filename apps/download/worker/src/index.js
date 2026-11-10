@@ -4,9 +4,10 @@ import {
   listDirectory,
   inspectFile,
   buildMovieCatalog,
+  buildSeriesCatalog,
 } from "./providers/sermovie/index.js";
 
-const VERSION = "0.5.0";
+const VERSION = "0.6.0";
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data, null, 2), {
@@ -165,6 +166,39 @@ export default {
           "INVALID_PATH",
           "PATH_NOT_ALLOWED",
           "INVALID_MOVIE_PATH",
+        ].includes(error.message);
+
+        return json({
+          success: false,
+          error: error.message,
+        }, isInvalid ? 400 : 502);
+      }
+    }
+
+    if (url.pathname === "/api/v1/providers/sermovie/series") {
+      const path = url.searchParams.get("path");
+
+      if (!path) {
+        return json({
+          success: false,
+          error: "MISSING_PATH",
+          message: "Please provide a series directory path.",
+        }, 400);
+      }
+
+      try {
+        const result = await buildSeriesCatalog(path);
+
+        return json({
+          success: true,
+          provider: "sermovie",
+          series: result,
+        });
+      } catch (error) {
+        const isInvalid = [
+          "INVALID_PATH",
+          "PATH_NOT_ALLOWED",
+          "INVALID_SERIES_PATH",
         ].includes(error.message);
 
         return json({
