@@ -1,8 +1,9 @@
 
 const ARCHIVE_ORIGIN = "https://dl5.sermoviedown.pw";
 
-function parseFilename(filename, path) {
-  const extension = filename.match(/\.([a-z0-9]+)$/i)?.[1]?.toLowerCase() || null;
+export function parseFilename(filename, path = "") {
+  const extension =
+    filename.match(/\.([a-z0-9]+)$/i)?.[1]?.toLowerCase() || null;
 
   const qualityPath = path.toLowerCase();
 
@@ -15,7 +16,9 @@ function parseFilename(filename, path) {
     qualityPath.match(/\/(2160|1080|720|480)\//)?.[1] ||
     null;
 
-  const codecMatch = filename.match(/\b(x265|h265|hevc|x264|h264|avc|av1)\b/i);
+  const codecMatch = filename.match(
+    /\b(x265|h265|hevc|x264|h264|avc|av1)\b/i
+  );
 
   let codec = null;
 
@@ -30,7 +33,6 @@ function parseFilename(filename, path) {
   }
 
   const seasonEpisode = filename.match(/S(\d{1,2})E(\d{1,3})/i);
-
   const bitDepth = filename.match(/\b(8|10|12)bit\b/i)?.[0] || null;
 
   const audioChannels =
@@ -53,7 +55,8 @@ function parseFilename(filename, path) {
   return {
     extension,
     mediaType: isSubtitle ? "subtitle" : "video",
-    resolution: resolution || (qualityFromFolder ? `${qualityFromFolder}p` : null),
+    resolution:
+      resolution || (qualityFromFolder ? `${qualityFromFolder}p` : null),
     codec,
     bitDepth,
     source,
