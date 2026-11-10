@@ -1,5 +1,7 @@
 
-const VERSION = "0.1.0";
+import { checkProviderStatus } from "./providers/sermovie/index.js";
+
+const VERSION = "0.2.0";
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data, null, 2), {
@@ -43,6 +45,28 @@ export default {
         version: VERSION,
         status: "healthy",
         timestamp: new Date().toISOString(),
+      });
+    }
+
+    if (url.pathname === "/api/v1/providers") {
+      return json({
+        success: true,
+        providers: [
+          {
+            id: "sermovie",
+            name: "Sermovie",
+            enabled: true,
+          },
+        ],
+      });
+    }
+
+    if (url.pathname === "/api/v1/providers/sermovie/status") {
+      const result = await checkProviderStatus();
+
+      return json({
+        success: true,
+        provider: result,
       });
     }
 
