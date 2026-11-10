@@ -75,7 +75,7 @@ async function fetchDirectory(url) {
   for (let attempt = 0; attempt <= 3; attempt++) {
     const response = await fetch(currentUrl.toString(), {
       headers: {
-        "User-Agent": "FlicksyDownload/0.4.0",
+        "User-Agent": "FlicksyDownload/0.6.0",
         Accept: "text/html",
       },
       redirect: "manual",
@@ -142,7 +142,7 @@ async function fetchFileSize(url) {
     const response = await fetch(currentUrl.toString(), {
       method: "GET",
       headers: {
-        "User-Agent": "FlicksyDownload/0.4.0",
+        "User-Agent": "FlicksyDownload/0.6.0",
         Range: "bytes=0-0",
       },
       redirect: "manual",
@@ -276,7 +276,7 @@ function getReleaseYear(entries) {
 
   for (const entry of entries) {
     const match = entry.name.match(
-      /(?:^|[._\s])((?:19|20)\d{2})(?=[._\s])/ 
+      /(?:^|[._\s])((?:19|20)\d{2})(?=[._\s])/
     );
 
     if (match) {
@@ -412,6 +412,218 @@ export async function buildMovieCatalog(path) {
         .filter((item) => item.result.error)
         .map((item) => `${item.folder}: ${item.result.error}`),
     ],
+  };
+}
+
+function getSeasonNumber(folderName) {
+  const match = folderName.match(/^S(\d{1,2})$/i);
+  return match ? Number(match[1]) : null;
+}
+
+function getEpisodeKey(season, episode) {
+  return `${season}-${episode}`;
+}
+
+function sortByEpisode(a, b) {
+  return a.episodeNumber - b.episodeNumber;
+}
+
+export async function buildSeriesCatalog(path) {
+  const seriesUrl = validatePath(path);
+  const segments = seriesUrl.pathname.split("/").filter(Boolean);
+
+  if (
+    segments.length !== 3 ||
+    segments[0] !== "Series" ||
+    seriesUrl.pathname.endsWith("/")
+  ) {
+    throw new Error("INVALID_SERIES_PATH");
+  }
+
+  const archiveYear = segments[1];
+  const folderName = decodeURIComponent(segments[2]);
+  const seriesPath = `${seriesUrl.pathname}/`;
+
+  const root = await listDirectory(seriesPath);
+
+  const seasonFolders = root.entries
+    .filter((entry) => entry.isDirectory)
+    .map((entry) => ({
+      ...entry,
+      seasonNumber: getSeasonNumber(entry.name.replace(/\/$/, "")),
+    }))
+    .filter((entry) => entry.seasonNumber !== null)
+    .sort((a, b) => a.seasonNumber - b.seasonNumber)
+    .slice(0, 20);
+
+  const warnings = [];
+  const seasons = [];
+
+  for (const seasonFolder of seasonFolders) {
+    const seasonNumber = seasonFolder.seasonNumber;
+    const seasonRoot = await listOptionalDirectory(seasonFolder.path);
+
+    if (seasonRoot.error) {
+      warnings.push(`S${String(seasonNumber).padStart(2, "0")}: ${seasonRoot.error}`);
+    }
+
+    const subtitleFolder = seasonRoot.entries.find(
+      (entry) =>
+        entry.isDirectory &&
+        entry.name.replace(/\/$/, "").toLowerCase() === "sub"
+    );
+
+    const qualityFolders = seasonRoot.entries
+      .filter((entry) => entry.isDirectory && entry !== subtitleFolder)
+      .slice(0, 12);
+
+    const qualityResults = await Promise.all(
+      qualityFolders.map(async (folder) => ({
+        folder: folder.name.replace(/\/$/, ""),
+        result: await listOptionalDirectory(folder.path),
+      }))
+    );
+
+    const episodeMap = new Map();
+
+    for (const item of qualityResults) {
+      if (item.result.error) {
+        warnings.push(
+          `S${String(seasonNumber).padStart(2, "0")}/${item.folder}: ${item.result.error}`
+        );
+        continue;
+      }
+
+      for (const entry of item.result.entries) {
+        if (entry.isDirectory) continue;
+
+        const metadata = entry.metadata || parseFilename(entry.name, entry.path);
+
+        if (metadata.mediaType !== "video") continue;
+
+        const episodeNumber = metadata.episode;
+
+        if (!Number.isInteger(episodeNumber)) continue;
+
+        const detectedSeason = metadata.season || seasonNumber;
+        const key = getEpisodeKey(detectedSeason, episodeNumber);
+
+        if (!episodeMap.has(key)) {
+          episodeMap.set(key, {
+            id: `${makeStableId(seriesPath)}-s${String(detectedSeason).padStart(2, "0")}e${String(episodeNumber).padStart(2, "0")}`,
+            type: "episode",
+            seasonNumber: detectedSeason,
+            episodeNumber,
+            title: `Episode ${String(episodeNumber).padStart(2, "0")}`,
+            downloadCount: 0,
+            downloads: [],
+            subtitles: [],
+          });
+        }
+
+        const episode = episodeMap.get(key);
+
+        episode.downloads.push({
+          id: makeStableId(entry.path),
+          name: entry.name,
+          path: entry.path,
+          qualityFolder: item.folder,
+          metadata,
+          sizeBytes: null,
+          downloadUrl: makeDirectUrl(entry.path),
+        });
+
+        episode.downloadCount++;
+      }
+    }
+
+    const seasonSubtitles = subtitleFolder
+      ? (await listOptionalDirectory(subtitleFolder.path)).entries
+          .filter((entry) => !entry.isDirectory)
+          .map((entry) => {
+            const metadata = entry.metadata || parseFilename(entry.name, entry.path);
+
+            return {
+              id: makeStableId(entry.path),
+              name: entry.name,
+              path: entry.path,
+              episodeNumber: metadata.episode,
+              format: metadata.extension,
+              language: "unknown",
+              sizeBytes: null,
+              downloadUrl: makeDirectUrl(entry.path),
+            };
+          })
+      : [];
+
+    for (const subtitle of seasonSubtitles) {
+      if (!Number.isInteger(subtitle.episodeNumber)) continue;
+
+      const episode = episodeMap.get(
+        getEpisodeKey(seasonNumber, subtitle.episodeNumber)
+      );
+
+      if (episode) {
+        episode.subtitles.push(subtitle);
+      }
+    }
+
+    const episodes = [...episodeMap.values()]
+      .sort(sortByEpisode)
+      .map((episode) => {
+        episode.downloads.sort((a, b) => {
+          const resolutionA = Number.parseInt(a.metadata.resolution || "0", 10);
+          const resolutionB = Number.parseInt(b.metadata.resolution || "0", 10);
+          return resolutionB - resolutionA;
+        });
+
+        return episode;
+      });
+
+    seasons.push({
+      id: `${makeStableId(seriesPath)}-s${String(seasonNumber).padStart(2, "0")}`,
+      seasonNumber,
+      title: `Season ${seasonNumber}`,
+      path: seasonFolder.path,
+      episodeCount: episodes.length,
+      downloadCount: episodes.reduce(
+        (total, episode) => total + episode.downloadCount,
+        0
+      ),
+      subtitleCount: seasonSubtitles.length,
+      subtitles: seasonSubtitles,
+      episodes,
+    });
+  }
+
+  const episodeCount = seasons.reduce(
+    (total, season) => total + season.episodeCount,
+    0
+  );
+
+  const downloadCount = seasons.reduce(
+    (total, season) => total + season.downloadCount,
+    0
+  );
+
+  const subtitleCount = seasons.reduce(
+    (total, season) => total + season.subtitleCount,
+    0
+  );
+
+  return {
+    id: makeStableId(seriesPath),
+    type: "series",
+    provider: "sermovie",
+    title: titleFromFolder(folderName),
+    archiveYear,
+    path: seriesPath,
+    seasonCount: seasons.length,
+    episodeCount,
+    downloadCount,
+    subtitleCount,
+    seasons,
+    warnings,
   };
 }
 
