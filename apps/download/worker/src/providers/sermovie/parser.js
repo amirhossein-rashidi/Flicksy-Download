@@ -5,6 +5,14 @@ export function parseDirectoryListing(html, currentUrl) {
   const entries = [];
   const seen = new Set();
 
+  const current = new URL(currentUrl);
+  const currentPath = current.pathname.endsWith("/")
+    ? current.pathname
+    : `${current.pathname}/`;
+
+  const parentPath = currentPath.split("/").filter(Boolean).slice(0, -1);
+  const parentUrl = `/${parentPath.join("/")}${parentPath.length ? "/" : ""}`;
+
   const anchors = html.matchAll(
     /<a\b[^>]*href\s*=\s*["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi
   );
@@ -26,14 +34,27 @@ export function parseDirectoryListing(html, currentUrl) {
     }
 
     if (target.origin !== ARCHIVE_ORIGIN) continue;
-    if (!target.pathname.startsWith("/")) continue;
     if (target.search || target.hash) continue;
 
-    const name = decodeURIComponent(
-      target.pathname.split("/").filter(Boolean).pop() || ""
-    );
+    let name;
 
-    if (!name || name === ".." || name === ".") continue;
+    try {
+      name = decodeURIComponent(
+        target.pathname.split("/").filter(Boolean).pop() || ""
+      );
+    } catch {
+      continue;
+    }
+
+    if (!name || name === "." || name === "..") continue;
+
+    // حذف لینک بازگشت به پوشه والد
+    if (
+      label.toLowerCase().includes("parent directory") ||
+      target.pathname === parentUrl
+    ) {
+      continue;
+    }
 
     const isDirectory = target.pathname.endsWith("/");
     const path = target.pathname;
