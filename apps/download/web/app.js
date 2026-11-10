@@ -20,7 +20,11 @@ const state = {
   detailType: null,
   selectedSeason: null,
   search: "",
-  loading: false
+  loading: false,
+
+  // File size cache: path -> sizeBytes
+  sizeCache: new Map(),
+  sizeLoading: new Set()
 };
 
 const app = document.getElementById("app");
@@ -136,6 +140,123 @@ function normalizePath(path) {
   return path.endsWith("/") ? path : `${path}/`;
 }
 
+/* ---------- File size helpers ---------- */
+
+function getKnownFileSize(item) {
+  const directSize = Number(item?.sizeBytes || item?.size);
+
+  if (Number.isFinite(directSize) && directSize > 0) {
+    return directSize;
+  }
+
+  const path = item?.path;
+
+  if (path && state.sizeCache.has(path)) {
+    return state.sizeCache.get(path);
+  }
+
+  return null;
+}
+
+async function fetchFileInfo(path) {
+  const endpoint =
+    `/api/v1/providers/${PROVIDER}/file-info?path=${encodeURIComponent(path)}`;
+
+  const data = await apiRequest(endpoint);
+
+  const file = data.file || data.data?.file || null;
+
+  if (!file) {
+    throw new Error("INVALID_FILE_INFO_RESPONSE");
+  }
+
+  const size = Number(file.sizeBytes);
+
+  if (!Number.isSafeInteger(size) || size <= 0) {
+    throw new Error("FILE_SIZE_UNAVAILABLE");
+  }
+
+  return size;
+}
+
+function updateFileSizeInUI(path, size) {
+  document.querySelectorAll("[data-file-size]").forEach(element => {
+    if (element.dataset.fileSize !== path) return;
+
+    element.textContent = formatBytes(size);
+    element.classList.remove("size-loading");
+    element.classList.add("size-loaded");
+  });
+}
+
+function updateFileSizeFailureInUI(path) {
+  document.querySelectorAll("[data-file-size]").forEach(element => {
+    if (element.dataset.fileSize !== path) return;
+
+    element.textContent = "حجم نامشخص";
+    element.classList.remove("size-loading");
+    element.classList.add("size-unavailable");
+  });
+}
+
+async function loadOneFileSize(item) {
+  const path = item?.path;
+
+  if (!path || typeof path !== "string") return;
+
+  if (getKnownFileSize(item) !== null) {
+    const size = getKnownFileSize(item);
+    updateFileSizeInUI(path, size);
+    return;
+  }
+
+  if (state.sizeLoading.has(path)) return;
+
+  state.sizeLoading.add(path);
+
+  try {
+    const size = await fetchFileInfo(path);
+
+    state.sizeCache.set(path, size);
+    updateFileSizeInUI(path, size);
+  } catch (error) {
+    console.warn("File size unavailable:", path, error);
+    updateFileSizeFailureInUI(path);
+  } finally {
+    state.sizeLoading.delete(path);
+  }
+}
+
+async function loadFileSizes(items) {
+  const uniqueItems = [];
+  const seen = new Set();
+
+  for (const item of items || []) {
+    const path = item?.path;
+
+    if (!path || seen.has(path)) continue;
+
+    seen.add(path);
+    uniqueItems.push(item);
+  }
+
+  // Maximum three simultaneous file-info requests.
+  let nextIndex = 0;
+
+  async function worker() {
+    while (nextIndex < uniqueItems.length) {
+      const item = uniqueItems[nextIndex++];
+      await loadOneFileSize(item);
+    }
+  }
+
+  const workerCount = Math.min(3, uniqueItems.length);
+
+  await Promise.all(
+    Array.from({ length: workerCount }, () => worker())
+  );
+}
+
 /* ---------- API response helpers ---------- */
 
 function getEntries(data) {
@@ -240,9 +361,9 @@ function getDownloadTags(item) {
   if (metadata.softSub === true) tags.push("زیرنویس داخلی");
   if (metadata.hardSub === true) tags.push("زیرنویس چسبیده");
 
-  const size = item.sizeBytes || item.size;
+  const size = getKnownFileSize(item);
 
-  if (size && Number(size) > 0) {
+  if (size !== null) {
     tags.push(formatBytes(size));
   }
 
@@ -826,6 +947,17 @@ function renderDownloadItem(item, index = 0) {
   const tags = getDownloadTags(item);
   const resolution = getResolution(item);
 
+  const path = item?.path || "";
+  const knownSize = getKnownFileSize(item);
+
+  const sizeMarkup = path
+    ? `<span
+         class="file-size ${knownSize === null ? "size-loading" : "size-loaded"}"
+         data-file-size="${escapeHTML(path)}">
+         ${knownSize === null ? "در حال بررسی حجم..." : escapeHTML(formatBytes(knownSize))}
+       </span>`
+    : "";
+
   return `
     <div class="download-item">
       <div class="download-main">
@@ -835,6 +967,7 @@ function renderDownloadItem(item, index = 0) {
 
         <div class="download-meta">
           ${tags.map(tag => `<span>${escapeHTML(tag)}</span>`).join("")}
+          ${sizeMarkup}
         </div>
 
         <div class="card-subtitle" style="direction:ltr;margin-top:8px">
@@ -890,6 +1023,9 @@ function renderMovieContent(catalog) {
       : ""
     }
   `;
+
+  // Fetch sizes after the download list is already visible.
+  loadFileSizes(downloads);
 }
 
 function renderSubtitleItem(item) {
@@ -984,6 +1120,12 @@ function renderSeriesContent(catalog) {
       renderSeriesContent(catalog);
     });
   });
+
+  // Only fetch sizes for episodes in the currently selected season.
+  const visibleDownloads = getEpisodes(selectedSeason)
+    .flatMap(episode => getDownloads(episode));
+
+  loadFileSizes(visibleDownloads);
 }
 
 function renderEpisode(episode) {
