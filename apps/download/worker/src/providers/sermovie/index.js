@@ -14,17 +14,8 @@ const CHECK_PATHS = [
 ];
 
 const ALLOWED_EXTENSIONS = new Set([
-  "mkv",
-  "mp4",
-  "avi",
-  "mov",
-  "webm",
-  "m4v",
-  "srt",
-  "ass",
-  "ssa",
-  "vtt",
-  "sub",
+  "mkv", "mp4", "avi", "mov", "webm", "m4v",
+  "srt", "ass", "ssa", "vtt", "sub",
 ]);
 
 function validatePath(path) {
@@ -316,15 +307,14 @@ export async function buildMovieCatalog(path) {
 
   if (
     segments.length !== 3 ||
-    segments[0] !== "Movies" ||
-    movieUrl.pathname.endsWith("/")
+    segments[0] !== "Movies"
   ) {
     throw new Error("INVALID_MOVIE_PATH");
   }
 
   const archiveYear = segments[1];
   const folderName = decodeURIComponent(segments[2]);
-  const moviePath = `${movieUrl.pathname}/`;
+  const moviePath = `${movieUrl.pathname.replace(/\/+$/, "")}/`;
 
   const root = await listDirectory(moviePath);
 
@@ -434,15 +424,14 @@ export async function buildSeriesCatalog(path) {
 
   if (
     segments.length !== 3 ||
-    segments[0] !== "Series" ||
-    seriesUrl.pathname.endsWith("/")
+    segments[0] !== "Series"
   ) {
     throw new Error("INVALID_SERIES_PATH");
   }
 
   const archiveYear = segments[1];
   const folderName = decodeURIComponent(segments[2]);
-  const seriesPath = `${seriesUrl.pathname}/`;
+  const seriesPath = `${seriesUrl.pathname.replace(/\/+$/, "")}/`;
 
   const root = await listDirectory(seriesPath);
 
