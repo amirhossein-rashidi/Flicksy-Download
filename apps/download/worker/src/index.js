@@ -1,7 +1,10 @@
 
-import { checkProviderStatus } from "./providers/sermovie/index.js";
+import {
+  checkProviderStatus,
+  listDirectory,
+} from "./providers/sermovie/index.js";
 
-const VERSION = "0.2.0";
+const VERSION = "0.3.0";
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data, null, 2), {
@@ -68,6 +71,37 @@ export default {
         success: true,
         provider: result,
       });
+    }
+
+    if (url.pathname === "/api/v1/providers/sermovie/list") {
+      const path = url.searchParams.get("path");
+
+      if (!path) {
+        return json({
+          success: false,
+          error: "MISSING_PATH",
+          message: "Please provide a directory path.",
+        }, 400);
+      }
+
+      try {
+        const result = await listDirectory(path);
+
+        return json({
+          success: true,
+          provider: "sermovie",
+          directory: result,
+        });
+      } catch (error) {
+        const isInvalid =
+          error.message === "INVALID_PATH" ||
+          error.message === "PATH_NOT_ALLOWED";
+
+        return json({
+          success: false,
+          error: error.message,
+        }, isInvalid ? 400 : 502);
+      }
     }
 
     return json({
