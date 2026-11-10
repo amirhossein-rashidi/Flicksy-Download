@@ -1,3 +1,4 @@
+
 "use strict";
 
 /* =========================================
@@ -13,6 +14,8 @@ const state = {
   year: null,
   entries: [],
   filteredEntries: [],
+  movieYears: [],
+  seriesYears: [],
   detail: null,
   detailType: null,
   selectedSeason: null,
@@ -133,10 +136,27 @@ function normalizePath(path) {
   return path.endsWith("/") ? path : `${path}/`;
 }
 
+/* ---------- API response helpers ---------- */
+
 function getEntries(data) {
   if (Array.isArray(data)) return data;
-  if (Array.isArray(data?.entries)) return data.entries;
-  if (Array.isArray(data?.data?.entries)) return data.data.entries;
+
+  if (Array.isArray(data?.directory?.entries)) {
+    return data.directory.entries;
+  }
+
+  if (Array.isArray(data?.entries)) {
+    return data.entries;
+  }
+
+  if (Array.isArray(data?.data?.directory?.entries)) {
+    return data.data.directory.entries;
+  }
+
+  if (Array.isArray(data?.data?.entries)) {
+    return data.data.entries;
+  }
+
   return [];
 }
 
@@ -207,6 +227,7 @@ function getDownloadTags(item) {
   const tags = [];
 
   const resolution = getResolution(item);
+
   if (resolution && resolution !== "کیفیت نامشخص") {
     tags.push(resolution);
   }
@@ -220,6 +241,7 @@ function getDownloadTags(item) {
   if (metadata.hardSub === true) tags.push("زیرنویس چسبیده");
 
   const size = item.sizeBytes || item.size;
+
   if (size && Number(size) > 0) {
     tags.push(formatBytes(size));
   }
@@ -250,7 +272,9 @@ function getCatalogPath(item) {
 
 function makeDetailUrl(type, path) {
   const params = new URLSearchParams();
+
   params.set(type === "series" ? "series" : "movie", path);
+
   return `${location.origin}${location.pathname}?${params.toString()}`;
 }
 
@@ -262,14 +286,17 @@ function navigateToDetail(type, path) {
   url.searchParams.set(param, path);
 
   history.pushState({ type, path }, "", url);
+
   loadDetail(type, path);
 }
 
 function navigateHome() {
   const url = new URL(location.href);
+
   url.search = "";
 
   history.pushState({}, "", url);
+
   state.detail = null;
   state.detailType = null;
 
@@ -342,7 +369,12 @@ async function renderHome() {
 
     renderHomeLayout();
   } catch (error) {
-    showError("دریافت آرشیو با مشکل مواجه شد. اتصال API را بررسی کن.", renderHome);
+    console.error("Archive loading error:", error);
+
+    showError(
+      "دریافت آرشیو با مشکل مواجه شد. اتصال API را بررسی کن.",
+      renderHome
+    );
   }
 }
 
@@ -354,7 +386,12 @@ function renderHomeLayout() {
   app.innerHTML = `
     <section class="hero">
       <div class="eyebrow">FLICKSY DOWNLOAD</div>
-      <h1>دنیای فیلم و سریال،<br><span>برای دانلود آماده است.</span></h1>
+
+      <h1>
+        دنیای فیلم و سریال،<br>
+        <span>برای دانلود آماده است.</span>
+      </h1>
+
       <p>
         آرشیو را جست‌وجو کن، کیفیت دلخواهت را انتخاب کن
         و مستقیم از منبع دانلود دریافت کن.
@@ -362,6 +399,7 @@ function renderHomeLayout() {
 
       <label class="search-box">
         <span class="search-icon">⌕</span>
+
         <input
           id="searchInput"
           type="search"
@@ -380,10 +418,15 @@ function renderHomeLayout() {
         </div>
 
         <div class="type-switch">
-          <button class="type-button ${state.type === "movies" ? "active" : ""}" data-type="movies">
+          <button
+            class="type-button ${state.type === "movies" ? "active" : ""}"
+            data-type="movies">
             فیلم‌ها
           </button>
-          <button class="type-button ${state.type === "series" ? "active" : ""}" data-type="series">
+
+          <button
+            class="type-button ${state.type === "series" ? "active" : ""}"
+            data-type="series">
             سریال‌ها
           </button>
         </div>
@@ -392,10 +435,16 @@ function renderHomeLayout() {
       <div class="year-list" id="yearList">
         ${years.length
           ? years.map(item => {
-              const year = item.name || item.title || item.path?.split("/").filter(Boolean).pop();
+              const year = item.name ||
+                item.title ||
+                item.path?.split("/").filter(Boolean).pop();
+
               return `
-                <button class="year-button ${String(state.year) === String(year) ? "active" : ""}"
-                  data-year="${escapeHTML(year)}">${escapeHTML(year)}</button>
+                <button
+                  class="year-button ${String(state.year) === String(year) ? "active" : ""}"
+                  data-year="${escapeHTML(year)}">
+                  ${escapeHTML(year)}
+                </button>
               `;
             }).join("")
           : `<div class="empty-state">هنوز سالی در این دسته‌بندی پیدا نشد.</div>`
@@ -423,6 +472,7 @@ function renderHomeLayout() {
       state.year = null;
       state.entries = [];
       state.search = "";
+
       renderHomeLayout();
     });
   });
@@ -434,6 +484,7 @@ function renderHomeLayout() {
   });
 
   const searchInput = document.getElementById("searchInput");
+
   searchInput.addEventListener("input", event => {
     state.search = event.target.value;
     filterEntries();
@@ -446,7 +497,10 @@ async function loadYear(year) {
   state.filteredEntries = [];
 
   document.querySelectorAll("[data-year]").forEach(button => {
-    button.classList.toggle("active", button.dataset.year === String(year));
+    button.classList.toggle(
+      "active",
+      button.dataset.year === String(year)
+    );
   });
 
   const title = document.getElementById("catalogTitle");
@@ -455,6 +509,7 @@ async function loadYear(year) {
 
   title.textContent = `آرشیو ${year}`;
   subtitle.textContent = "در حال دریافت فهرست...";
+
   content.innerHTML = `
     <div class="loading-screen">
       <div class="loader"></div>
@@ -474,8 +529,11 @@ async function loadYear(year) {
     state.filteredEntries = [...state.entries];
 
     subtitle.textContent = `${state.entries.length} عنوان در آرشیو ${year}`;
+
     filterEntries();
   } catch (error) {
+    console.error("Year loading error:", error);
+
     content.innerHTML = `
       <div class="error-state">
         دریافت این آرشیو ناموفق بود.
@@ -495,6 +553,7 @@ function filterEntries() {
 
   state.filteredEntries = state.entries.filter(item => {
     const name = titleFromName(item.name || item.title || "");
+
     return !query || name.toLowerCase().includes(query);
   });
 
@@ -503,10 +562,16 @@ function filterEntries() {
 
 function renderCatalogCards() {
   const content = document.getElementById("catalogContent");
+
   if (!content) return;
 
   if (!state.year) {
-    content.innerHTML = `<div class="empty-state">ابتدا یک سال را انتخاب کن.</div>`;
+    content.innerHTML = `
+      <div class="empty-state">
+        ابتدا یک سال را انتخاب کن.
+      </div>
+    `;
+
     return;
   }
 
@@ -518,6 +583,7 @@ function renderCatalogCards() {
         عبارت دیگری را جست‌وجو کن.
       </div>
     `;
+
     return;
   }
 
@@ -529,7 +595,8 @@ function renderCatalogCards() {
         const typeLabel = state.type === "movies" ? "FILM" : "SERIES";
 
         return `
-          <article class="catalog-card"
+          <article
+            class="catalog-card"
             data-open-path="${escapeHTML(path)}"
             data-open-type="${state.type === "movies" ? "movie" : "series"}">
 
@@ -543,7 +610,10 @@ function renderCatalogCards() {
               <div class="card-subtitle">${escapeHTML(state.year)}</div>
 
               <div class="card-bottom">
-                <span class="card-tag">${state.type === "movies" ? "دانلود فیلم" : "دانلود سریال"}</span>
+                <span class="card-tag">
+                  ${state.type === "movies" ? "دانلود فیلم" : "دانلود سریال"}
+                </span>
+
                 <span class="card-arrow">←</span>
               </div>
             </div>
@@ -555,7 +625,10 @@ function renderCatalogCards() {
 
   content.querySelectorAll("[data-open-path]").forEach(card => {
     card.addEventListener("click", () => {
-      navigateToDetail(card.dataset.openType, card.dataset.openPath);
+      navigateToDetail(
+        card.dataset.openType,
+        card.dataset.openPath
+      );
     });
   });
 }
@@ -589,11 +662,17 @@ async function loadDetail(type, path) {
 
     if (type === "series") {
       const seasons = getSeasons(catalog);
-      state.selectedSeason = seasons[0]?.seasonNumber ?? seasons[0]?.number ?? null;
+
+      state.selectedSeason =
+        seasons[0]?.seasonNumber ??
+        seasons[0]?.number ??
+        null;
     }
 
     renderDetail();
   } catch (error) {
+    console.error("Detail loading error:", error);
+
     showError(
       "دریافت اطلاعات این عنوان ناموفق بود. ممکن است مسیر آرشیو تغییر کرده باشد.",
       () => loadDetail(type, path)
@@ -659,6 +738,7 @@ function getEpisodeNumber(episode) {
 
 function renderDetail() {
   const catalog = state.detail;
+
   if (!catalog) return;
 
   const type = state.detailType;
@@ -669,6 +749,7 @@ function renderDetail() {
   const path = getCatalogPath(catalog);
 
   const detailUrl = makeDetailUrl(type, path);
+
   const count = type === "series"
     ? `${catalog.seasonCount ?? getSeasons(catalog).length} فصل · ${catalog.episodeCount ?? 0} قسمت`
     : `${getMovieDownloads(catalog).length} نسخه دانلود`;
@@ -688,7 +769,10 @@ function renderDetail() {
       </div>
 
       <div class="detail-content">
-        <div class="eyebrow">${type === "series" ? "SERIES DOWNLOAD" : "MOVIE DOWNLOAD"}</div>
+        <div class="eyebrow">
+          ${type === "series" ? "SERIES DOWNLOAD" : "MOVIE DOWNLOAD"}
+        </div>
+
         <h1>${escapeHTML(title)}</h1>
 
         ${originalTitle
@@ -745,7 +829,9 @@ function renderDownloadItem(item, index = 0) {
   return `
     <div class="download-item">
       <div class="download-main">
-        <div class="download-title">${escapeHTML(resolution || name)}</div>
+        <div class="download-title">
+          ${escapeHTML(resolution || name)}
+        </div>
 
         <div class="download-meta">
           ${tags.map(tag => `<span>${escapeHTML(tag)}</span>`).join("")}
@@ -758,7 +844,8 @@ function renderDownloadItem(item, index = 0) {
 
       <div class="download-actions">
         ${url
-          ? `<a class="download-button"
+          ? `<a
+                class="download-button"
                 href="${escapeHTML(url)}"
                 target="_blank"
                 rel="noopener noreferrer"
@@ -774,6 +861,7 @@ function renderDownloadItem(item, index = 0) {
 
 function renderMovieContent(catalog) {
   const container = document.getElementById("detailContent");
+
   const downloads = getMovieDownloads(catalog);
   const subtitles = getSubtitles(catalog);
 
@@ -793,6 +881,7 @@ function renderMovieContent(catalog) {
       ? `
         <section class="detail-section">
           <h2>زیرنویس‌ها</h2>
+
           <div class="download-list">
             ${subtitles.map(item => renderSubtitleItem(item)).join("")}
           </div>
@@ -810,9 +899,15 @@ function renderSubtitleItem(item) {
   return `
     <div class="subtitle-item">
       <span>${escapeHTML(name)}</span>
+
       ${url
-        ? `<a class="secondary-button" href="${escapeHTML(url)}"
-             target="_blank" rel="noopener noreferrer">دانلود زیرنویس</a>`
+        ? `<a
+             class="secondary-button"
+             href="${escapeHTML(url)}"
+             target="_blank"
+             rel="noopener noreferrer">
+             دانلود زیرنویس
+           </a>`
         : `<span class="meta-chip">لینک موجود نیست</span>`
       }
     </div>
@@ -828,9 +923,12 @@ function renderSeriesContent(catalog) {
   if (!seasons.length) {
     container.innerHTML = `
       <section class="detail-section">
-        <div class="empty-state">فصلی برای این سریال در آرشیو پیدا نشد.</div>
+        <div class="empty-state">
+          فصلی برای این سریال در آرشیو پیدا نشد.
+        </div>
       </section>
     `;
+
     return;
   }
 
@@ -870,6 +968,7 @@ function renderSeriesContent(catalog) {
       ? `
         <section class="detail-section">
           <h2>زیرنویس‌های فصل</h2>
+
           <div class="download-list">
             ${getSubtitles(selectedSeason).map(item => renderSubtitleItem(item)).join("")}
           </div>
