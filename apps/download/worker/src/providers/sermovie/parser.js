@@ -33,10 +33,16 @@ export function parseFilename(filename, path = "") {
   }
 
   const seasonEpisode = filename.match(/S(\d{1,2})E(\d{1,3})/i);
+
   const bitDepth = filename.match(/\b(8|10|12)bit\b/i)?.[0] || null;
 
-  const audioChannels =
-    filename.match(/\b(2CH|6CH|8CH|5\.1|7\.1)\b/i)?.[0] || null;
+  const audioChannelsMatch = filename.match(
+    /(?:AAC|AC3|DDP|DD|EAC3)?(5\.1|7\.1)|(?:^|[._\s-])(2CH|6CH|8CH)(?=$|[._\s-])/i
+  );
+
+  const audioChannels = audioChannelsMatch
+    ? (audioChannelsMatch[1] || audioChannelsMatch[2]).toUpperCase()
+    : null;
 
   const sourceMatch = filename.match(
     /\b(WEB-DL|WEBRip|BluRay|BDRip|HDRip|HDTV|DVDRip)\b/i
@@ -73,6 +79,7 @@ export function parseDirectoryListing(html, currentUrl) {
   const seen = new Set();
 
   const current = new URL(currentUrl);
+
   const currentPath = current.pathname.endsWith("/")
     ? current.pathname
     : `${current.pathname}/`;
