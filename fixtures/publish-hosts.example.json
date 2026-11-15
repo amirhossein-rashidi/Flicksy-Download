@@ -1,0 +1,4 @@
+{
+  "_README": "Copy to data/overlay/publish-hosts.json and list ONLY hosts whose links you have the right to publish. Matches the host and its subdomains. Empty list = no link is published.",
+  "allowedHosts": []
+}

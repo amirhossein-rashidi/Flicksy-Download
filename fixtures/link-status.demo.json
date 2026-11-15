@@ -1,0 +1,5 @@
+{
+  "_README": "DEMO ONLY - fake statuses to preview the badges. Copy to data/overlay/link-status.json and re-run the importer. Real statuses must come from real checks.",
+  "archive:524177": {"status": "working", "checked_at": "2026-01-01T00:00:00", "http_status": 206},
+  "archive:524176": {"status": "unavailable", "checked_at": "2026-01-01T00:00:00", "http_status": 404}
+}
