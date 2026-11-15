@@ -9,6 +9,14 @@
 const API_BASE = "https://flicksy-download.awmirmusic-907.workers.dev";
 const PROVIDER = "sermovie";
 
+/* حالت داده: offline = خواندن از JSON محلی، online = گرفتن درجا از آدرس سرور */
+const MODE_KEY = "flicksy-mode";
+function loadMode() {
+  try { return localStorage.getItem(MODE_KEY) === "online" ? "online" : "offline"; }
+  catch (e) { return "offline"; }
+}
+let dataMode = loadMode();
+
 const state = {
   type: "movies",
   year: null,
@@ -19,6 +27,8 @@ const state = {
   detail: null,
   detailType: null,
   selectedSeason: null,
+  seasonView: null,
+  episodeView: null,
   search: "",
   loading: false,
 
@@ -73,6 +83,61 @@ function shortTitle(value) {
   return title.charAt(0).toUpperCase();
 }
 
+function imgTag(url, cls) {
+  if (!url) return "";
+  return `<img class="${cls}" src="${escapeHTML(url)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">`;
+}
+
+function chips(list, cls = "meta-chip") {
+  return (list || []).filter(Boolean).map(x => `<span class="${cls}">${escapeHTML(x)}</span>`).join("");
+}
+
+function fmtValue(v) {
+  if (v === null || v === undefined || v === "") return "—";
+  return typeof v === "object" ? JSON.stringify(v) : String(v);
+}
+
+function extraBlock(extra) {
+  const keys = Object.keys(extra || {});
+  if (!keys.length) return "";
+  return `<div class="extra-block">${keys.map(k =>
+    `<div><b>${escapeHTML(k)}</b><span>${escapeHTML(fmtValue(extra[k]))}</span></div>`
+  ).join("")}</div>`;
+}
+
+function idsBlock(ids) {
+  if (!Array.isArray(ids) || !ids.length) return "";
+  const rows = ids.map(r => {
+    const val = r.value
+      ? `<span class="id-value" dir="ltr">${escapeHTML(r.value)}</span>`
+      : `<span class="id-missing">در داده نیست</span>`;
+    const link = r.url
+      ? `<a class="id-link" href="${escapeHTML(r.url)}" target="_blank" rel="noopener">${r.search ? "جست‌وجو در " + escapeHTML(r.label) : "باز کردن"} ↗</a>`
+      : "";
+    const copy = r.value
+      ? `<button type="button" class="id-copy" data-copy="${escapeHTML(r.value)}">کپی</button>`
+      : "";
+    return `<div class="id-row"><b>${escapeHTML(r.label)}</b>${val}${copy}${link}</div>`;
+  }).join("");
+  return `<section class="id-block"><h3>شناسه‌ها و لینک‌ها</h3>${rows}</section>`;
+}
+
+document.addEventListener("click", e => {
+  const b = e.target.closest?.(".id-copy");
+  if (!b) return;
+  const t = b.dataset.copy;
+  const done = () => showToast("کپی شد");
+  if (navigator.clipboard) navigator.clipboard.writeText(t).then(done, () => prompt("کپی کن:", t));
+  else prompt("کپی کن:", t);
+});
+
+function rawBlock(raw) {
+  if (!raw) return "";
+  return `<details class="raw-details"><summary>همه‌ی اطلاعات ذخیره‌شده (JSON)</summary>` +
+    `<div class="extra-block">${Object.keys(raw).map(k =>
+      `<div><b>${escapeHTML(k)}</b><span>${escapeHTML(fmtValue(raw[k]))}</span></div>`).join("")}</div></details>`;
+}
+
 function showToast(message) {
   toastElement.textContent = message;
   toastElement.classList.add("show");
@@ -115,7 +180,8 @@ function showError(message, retryCallback) {
 }
 
 async function apiRequest(endpoint) {
-  const response = await fetch(`${API_BASE}${endpoint}`, {
+  const sep = endpoint.includes("?") ? "&" : "?";
+  const response = await fetch(`${API_BASE}${endpoint}${sep}mode=${dataMode}`, {
     method: "GET",
     headers: {
       "Accept": "application/json"
@@ -391,10 +457,12 @@ function getCatalogPath(item) {
 
 /* ---------- Direct links and navigation ---------- */
 
-function makeDetailUrl(type, path) {
+function makeDetailUrl(type, path, season = null, episode = null) {
   const params = new URLSearchParams();
 
   params.set(type === "series" ? "series" : "movie", path);
+  if (season !== null && season !== undefined) params.set("season", season);
+  if (episode !== null && episode !== undefined) params.set("episode", episode);
 
   return `${location.origin}${location.pathname}?${params.toString()}`;
 }
@@ -442,7 +510,37 @@ window.addEventListener("popstate", () => {
 
 /* ---------- Initial loading ---------- */
 
+function applyModeUI() {
+  document.querySelectorAll("[data-mode]").forEach(btn => {
+    btn.classList.toggle("active", btn.dataset.mode === dataMode);
+  });
+}
+
+function setupModeSwitch() {
+  applyModeUI();
+
+  document.querySelectorAll("[data-mode]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      if (btn.dataset.mode === dataMode) return;
+
+      dataMode = btn.dataset.mode;
+      try { localStorage.setItem(MODE_KEY, dataMode); } catch (e) {}
+      applyModeUI();
+      showToast(dataMode === "online" ? "حالت آنلاین: درجا از سرور" : "حالت آفلاین: از JSON");
+
+      // همان صفحه‌ای که باز است را با حالت جدید دوباره بگیر
+      if (state.detail && state.detailType) {
+        loadDetail(state.detailType, state.detail.path);
+      } else {
+        renderHome();
+      }
+    });
+  });
+}
+
 async function init() {
+  setupModeSwitch();
+
   try {
     await apiRequest("/api/v1/health");
     setApiStatus(true, "API متصل است");
@@ -559,12 +657,13 @@ function renderHomeLayout() {
               const year = item.name ||
                 item.title ||
                 item.path?.split("/").filter(Boolean).pop();
+              const label = item.label || year;
 
               return `
                 <button
                   class="year-button ${String(state.year) === String(year) ? "active" : ""}"
                   data-year="${escapeHTML(year)}">
-                  ${escapeHTML(year)}
+                  ${escapeHTML(label)}
                 </button>
               `;
             }).join("")
@@ -628,7 +727,8 @@ async function loadYear(year) {
   const subtitle = document.getElementById("catalogSubtitle");
   const content = document.getElementById("catalogContent");
 
-  title.textContent = `آرشیو ${year}`;
+  const yearLabel = /^p\d+$/.test(year) ? `صفحه ${year.slice(1)}` : year;
+  title.textContent = dataMode === "online" ? `آنلاین · ${yearLabel}` : `آرشیو ${yearLabel}`;
   subtitle.textContent = "در حال دریافت فهرست...";
 
   content.innerHTML = `
@@ -649,7 +749,7 @@ async function loadYear(year) {
     state.entries = getDirectories(getEntries(data));
     state.filteredEntries = [...state.entries];
 
-    subtitle.textContent = `${state.entries.length} عنوان در آرشیو ${year}`;
+    subtitle.textContent = `${state.entries.length} عنوان در ${dataMode === "online" ? "" : "آرشیو "}${yearLabel}`;
 
     filterEntries();
   } catch (error) {
@@ -723,12 +823,15 @@ function renderCatalogCards() {
 
             <div class="poster">
               <span class="poster-letter">${escapeHTML(shortTitle(name))}</span>
+              ${imgTag(item.image, "poster-img")}
               <span class="poster-type">${typeLabel}</span>
+              ${item.imdb ? `<span class="poster-imdb">⭐ ${escapeHTML(item.imdb)}</span>` : ""}
             </div>
 
             <div class="card-info">
               <div class="card-title">${escapeHTML(name)}</div>
-              <div class="card-subtitle">${escapeHTML(state.year)}</div>
+              <div class="card-subtitle">${escapeHTML(item.year || (/^p\d+$/.test(state.year) ? "" : state.year))}${item.duration ? " · " + escapeHTML(item.duration) : ""}</div>
+              ${(item.genres || []).length ? `<div class="card-genres">${escapeHTML(item.genres.slice(0, 3).join(" · "))}</div>` : ""}
 
               <div class="card-bottom">
                 <span class="card-tag">
@@ -780,6 +883,14 @@ async function loadDetail(type, path) {
     state.detail = catalog;
     state.detailType = type;
     state.selectedSeason = null;
+
+    const urlParams = new URLSearchParams(location.search);
+    const seasonParam = urlParams.get("season");
+    const episodeParam = urlParams.get("episode");
+    state.seasonView = type === "series" && seasonParam !== null ? Number(seasonParam) : null;
+    state.episodeView = type === "series" && seasonParam !== null && episodeParam !== null
+      ? Number(episodeParam)
+      : null;
 
     if (type === "series") {
       const seasons = getSeasons(catalog);
@@ -863,6 +974,11 @@ function renderDetail() {
   if (!catalog) return;
 
   const type = state.detailType;
+
+  if (type === "series" && state.seasonView !== null) {
+    renderSeasonOrEpisodePage(catalog);
+    return;
+  }
   const title = getTitle(catalog);
   const originalTitle = getOriginalTitle(catalog);
   const year = getYear(catalog);
@@ -887,6 +1003,7 @@ function renderDetail() {
     <section class="detail-header">
       <div class="detail-poster">
         <span>${escapeHTML(shortTitle(title))}</span>
+        ${imgTag(catalog.image || catalog.cover, "detail-poster-img")}
       </div>
 
       <div class="detail-content">
@@ -905,7 +1022,16 @@ function renderDetail() {
           ${year ? `<span class="meta-chip">${escapeHTML(year)}</span>` : ""}
           <span class="meta-chip">${type === "series" ? "سریال" : "فیلم"}</span>
           <span class="meta-chip">${escapeHTML(count)}</span>
+          ${catalog.imdb ? `<span class="meta-chip chip-imdb">IMDb ${escapeHTML(catalog.imdb)}</span>` : ""}
+          ${catalog.rating ? `<span class="meta-chip">امتیاز ${escapeHTML(catalog.rating)}</span>` : ""}
+          ${catalog.duration ? `<span class="meta-chip">⏱ ${escapeHTML(catalog.duration)}</span>` : ""}
+          ${catalog.itemType ? `<span class="meta-chip">${escapeHTML(catalog.itemType)}</span>` : ""}
         </div>
+
+        ${(catalog.genres || []).length ? `<div class="meta-list">${chips(catalog.genres, "meta-chip chip-genre")}</div>` : ""}
+
+        ${(catalog.countries || []).length ? `<div class="meta-list">${catalog.countries.map(c =>
+          `<span class="meta-chip chip-country">${imgTag(c.image, "flag-img")}${escapeHTML(c.title || "")}</span>`).join("")}</div>` : ""}
 
         ${description
           ? `<p class="detail-description">${escapeHTML(description)}</p>`
@@ -917,6 +1043,12 @@ function renderDetail() {
         </button>
       </div>
     </section>
+
+    ${catalog.cover && catalog.cover !== catalog.image ? `<div class="detail-cover-wrap">${imgTag(catalog.cover, "detail-cover")}</div>` : ""}
+
+    ${idsBlock(catalog.ids)}
+    ${extraBlock(catalog.extra)}
+    ${rawBlock(catalog.raw)}
 
     <div id="detailContent"></div>
   `;
@@ -1052,6 +1184,27 @@ function renderSubtitleItem(item) {
 
 /* ---------- Series details ---------- */
 
+function navigateSeries(season, episode = null) {
+  const catalog = state.detail;
+  const path = getCatalogPath(catalog);
+  const url = new URL(location.href);
+
+  url.search = "";
+  url.searchParams.set("series", path);
+
+  if (season !== null) url.searchParams.set("season", season);
+  if (season !== null && episode !== null) url.searchParams.set("episode", episode);
+
+  history.pushState({ type: "series", path, season, episode }, "", url);
+
+  state.seasonView = season;
+  state.episodeView = season !== null ? episode : null;
+
+  renderDetail();
+  window.scrollTo(0, 0);
+}
+
+/* صفحه‌ی سریال: فهرست فصل‌ها */
 function renderSeriesContent(catalog) {
   const container = document.getElementById("detailContent");
   const seasons = getSeasons(catalog);
@@ -1061,6 +1214,7 @@ function renderSeriesContent(catalog) {
       <section class="detail-section">
         <div class="empty-state">
           فصلی برای این سریال در آرشیو پیدا نشد.
+          ${(catalog.warnings || []).map(w => `<br>${escapeHTML(w)}`).join("")}
         </div>
       </section>
     `;
@@ -1068,64 +1222,230 @@ function renderSeriesContent(catalog) {
     return;
   }
 
-  const selectedSeason = seasons.find(season =>
-    String(getSeasonNumber(season)) === String(state.selectedSeason)
-  ) || seasons[0];
-
-  state.selectedSeason = getSeasonNumber(selectedSeason);
-
   container.innerHTML = `
     <section class="detail-section">
-      <h2>فصل‌ها و قسمت‌ها</h2>
+      <h2>فصل‌ها</h2>
 
-      <div class="season-tabs">
+      <div class="season-grid">
         ${seasons.map(season => {
           const number = getSeasonNumber(season);
+          const episodes = getEpisodes(season);
+          const downloads = episodes.reduce((t, e) => t + getDownloads(e).length, 0);
 
           return `
-            <button
-              class="season-button ${String(number) === String(state.selectedSeason) ? "active" : ""}"
-              data-season="${escapeHTML(number)}">
-              فصل ${escapeHTML(number)}
-            </button>
+            <article class="season-card" data-season-open="${escapeHTML(number)}">
+              <div class="season-number">${escapeHTML(number)}</div>
+              <div class="season-card-info">
+                <strong>${escapeHTML(season.title || ("فصل " + number))}</strong>
+                <span>${episodes.length} قسمت · ${downloads} لینک دانلود</span>
+              </div>
+              <a class="season-newtab"
+                 href="${escapeHTML(makeDetailUrl("series", getCatalogPath(catalog), number))}"
+                 target="_blank" rel="noopener"
+                 title="باز کردن این فصل در صفحه‌ی جدید">صفحه‌ی جدید ↗</a>
+              <span class="card-arrow">←</span>
+            </article>
           `;
         }).join("")}
       </div>
+    </section>
+  `;
+
+  container.querySelectorAll(".season-newtab").forEach(link => {
+    link.addEventListener("click", e => e.stopPropagation());
+  });
+
+  container.querySelectorAll("[data-season-open]").forEach(card => {
+    card.addEventListener("click", () => {
+      navigateSeries(Number(card.dataset.seasonOpen));
+    });
+  });
+}
+
+/* صفحه‌ی فصل و صفحه‌ی دانلود قسمت */
+function renderSeasonOrEpisodePage(catalog) {
+  const title = getTitle(catalog);
+  const seasons = getSeasons(catalog);
+  const season = seasons.find(s => Number(getSeasonNumber(s)) === state.seasonView);
+  const seasonNo = state.seasonView;
+
+  const episodes = season ? getEpisodes(season) : [];
+  const episode = state.episodeView !== null
+    ? episodes.find(e => Number(getEpisodeNumber(e)) === state.episodeView)
+    : null;
+
+  const crumbs = `
+    <nav class="breadcrumb">
+      <button id="homeButton">خانه</button>
+      <span>‹</span>
+      <button id="seriesBackButton">${escapeHTML(title)}</button>
+      <span>‹</span>
+      ${state.episodeView !== null
+        ? `<button id="seasonBackButton">فصل ${escapeHTML(seasonNo)}</button>
+           <span>‹</span>
+           <span>قسمت ${escapeHTML(state.episodeView)}</span>`
+        : `<span>فصل ${escapeHTML(seasonNo)}</span>`
+      }
+    </nav>
+  `;
+
+  let body = "";
+
+  if (!season) {
+    body = `<div class="empty-state">این فصل پیدا نشد.</div>`;
+  } else if (state.episodeView !== null && !episode) {
+    body = `<div class="empty-state">این قسمت پیدا نشد.</div>`;
+  } else if (!episode) {
+    body = seasonPageHTML(season, seasonNo, seasons);
+  } else {
+    body = episodePageHTML(episode, season, seasonNo, episodes);
+  }
+
+  app.innerHTML = crumbs + body;
+
+  document.getElementById("homeButton").addEventListener("click", navigateHome);
+  document.getElementById("seriesBackButton").addEventListener("click", () => navigateSeries(null));
+  document.getElementById("seasonBackButton")?.addEventListener("click", () => navigateSeries(seasonNo));
+
+  app.querySelectorAll("[data-season-switch]").forEach(button => {
+    button.addEventListener("click", () => navigateSeries(Number(button.dataset.seasonSwitch)));
+  });
+
+  app.querySelectorAll("[data-episode-open]").forEach(card => {
+    card.addEventListener("click", () => navigateSeries(seasonNo, Number(card.dataset.episodeOpen)));
+  });
+
+  app.querySelectorAll("[data-copy-link]").forEach(button => {
+    button.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(button.dataset.copyLink);
+        showToast("لینک کپی شد.");
+      } catch {
+        showToast("امکان کپی لینک وجود نداشت.");
+      }
+    });
+  });
+
+  if (episode) {
+    loadFileSizes(getDownloads(episode));
+  } else if (season) {
+    // حجم فقط برای قسمت‌های همین فصل (۳ درخواست هم‌زمان)
+    loadFileSizes(episodes.flatMap(e => getDownloads(e)));
+  }
+}
+
+function seasonPageHTML(season, seasonNo, seasons) {
+  const episodes = getEpisodes(season);
+  const subtitles = getSubtitles(season);
+
+  return `
+    <section class="detail-section">
+      <h2>${escapeHTML(season.title || ("فصل " + seasonNo))}</h2>
+
+      <div class="season-tabs">
+        ${seasons.map(s => {
+          const n = getSeasonNumber(s);
+          return `<button class="season-button ${Number(n) === Number(seasonNo) ? "active" : ""}"
+                    data-season-switch="${escapeHTML(n)}">فصل ${escapeHTML(n)}</button>`;
+        }).join("")}
+      </div>
+
+      ${extraBlock(season.extra)}
 
       <div class="episode-list">
-        ${getEpisodes(selectedSeason).length
-          ? getEpisodes(selectedSeason).map(episode => renderEpisode(episode)).join("")
+        ${episodes.length
+          ? episodes.map(e => {
+              const n = getEpisodeNumber(e);
+              const count = getDownloads(e).length;
+
+              return `
+                <article class="episode-card episode-link" data-episode-open="${escapeHTML(n)}">
+                  <div class="episode-heading">
+                    <strong>${escapeHTML(e.title || ("قسمت " + n))}</strong>
+                    <span>قسمت ${escapeHTML(n)}${e.duration ? " · " + escapeHTML(e.duration) : ""}</span>
+                  </div>
+
+                  ${(e.image || e.description) ? `
+                    <div class="episode-info">
+                      ${imgTag(e.image, "episode-img")}
+                      ${e.description ? `<p class="clamp">${escapeHTML(e.description)}</p>` : ""}
+                    </div>` : ""}
+
+                  <div class="episode-link-bottom">
+                    <span class="meta-chip">${count} نسخه دانلود</span>
+                    <span class="download-button">صفحه‌ی دانلود ←</span>
+                  </div>
+                </article>
+              `;
+            }).join("")
           : `<div class="empty-state">قسمتی برای این فصل پیدا نشد.</div>`
         }
       </div>
     </section>
 
-    ${getSubtitles(selectedSeason).length
-      ? `
-        <section class="detail-section">
-          <h2>زیرنویس‌های فصل</h2>
-
-          <div class="download-list">
-            ${getSubtitles(selectedSeason).map(item => renderSubtitleItem(item)).join("")}
-          </div>
-        </section>
-      `
+    ${subtitles.length
+      ? `<section class="detail-section">
+           <h2>زیرنویس‌های فصل</h2>
+           <div class="download-list">
+             ${subtitles.map(item => renderSubtitleItem(item)).join("")}
+           </div>
+         </section>`
       : ""
     }
   `;
+}
 
-  container.querySelectorAll("[data-season]").forEach(button => {
-    button.addEventListener("click", () => {
-      state.selectedSeason = button.dataset.season;
-      renderSeriesContent(catalog);
-    });
-  });
+function episodePageHTML(episode, season, seasonNo, episodes) {
+  const number = getEpisodeNumber(episode);
+  const downloads = getDownloads(episode);
+  const title = episode.title || ("قسمت " + number);
+  const index = episodes.indexOf(episode);
+  const prev = index > 0 ? episodes[index - 1] : null;
+  const next = index >= 0 && index < episodes.length - 1 ? episodes[index + 1] : null;
+  const link = makeDetailUrl("series", getCatalogPath(state.detail), seasonNo, number);
 
-  // Only fetch sizes for episodes in the currently selected season.
-  const visibleDownloads = getEpisodes(selectedSeason)
-    .flatMap(episode => getDownloads(episode));
+  return `
+    <section class="detail-header episode-header">
+      ${episode.image ? `<div class="detail-poster">${imgTag(episode.image, "detail-poster-img")}</div>` : ""}
 
-  loadFileSizes(visibleDownloads);
+      <div class="detail-content">
+        <div class="eyebrow">EPISODE DOWNLOAD</div>
+        <h1>${escapeHTML(title)}</h1>
+
+        <div class="meta-list">
+          <span class="meta-chip">فصل ${escapeHTML(seasonNo)}</span>
+          <span class="meta-chip">قسمت ${escapeHTML(number)}</span>
+          ${episode.duration ? `<span class="meta-chip">⏱ ${escapeHTML(episode.duration)}</span>` : ""}
+          <span class="meta-chip">${downloads.length} نسخه دانلود</span>
+        </div>
+
+        ${episode.description ? `<p class="detail-description">${escapeHTML(episode.description)}</p>` : ""}
+
+        <button class="secondary-button" data-copy-link="${escapeHTML(link)}">↗ کپی لینک این قسمت</button>
+      </div>
+    </section>
+
+    ${extraBlock(episode.extra)}
+
+    <section class="detail-section">
+      <h2>نسخه‌های دانلود</h2>
+      ${downloads.length
+        ? `<div class="download-list">
+             ${downloads.map((item, i) => renderDownloadItem(item, i)).join("")}
+           </div>`
+        : `<div class="empty-state">برای این قسمت لینک دانلودی پیدا نشد.</div>`
+      }
+    </section>
+
+    <div class="episode-nav">
+      ${prev
+        ? `<button class="secondary-button" data-episode-open="${escapeHTML(getEpisodeNumber(prev))}">→ قسمت قبلی</button>`
+        : `<span></span>`}
+      ${next
+        ? `<button class="secondary-button" data-episode-open="${escapeHTML(getEpisodeNumber(next))}">قسمت بعدی ←</button>`
+        : `<span></span>`}
+    </div>
+  `;
 }
 
 function renderEpisode(episode) {
@@ -1137,8 +1457,15 @@ function renderEpisode(episode) {
     <article class="episode-card">
       <div class="episode-heading">
         <strong>${escapeHTML(title)}</strong>
-        <span>قسمت ${escapeHTML(number)}</span>
+        <span>قسمت ${escapeHTML(number)}${episode.duration ? " · " + escapeHTML(episode.duration) : ""}</span>
       </div>
+
+      ${(episode.image || episode.description) ? `
+        <div class="episode-info">
+          ${imgTag(episode.image, "episode-img")}
+          ${episode.description ? `<p>${escapeHTML(episode.description)}</p>` : ""}
+        </div>` : ""}
+      ${extraBlock(episode.extra)}
 
       ${downloads.length
         ? downloads.map((item, index) => renderDownloadItem(item, index)).join("")
