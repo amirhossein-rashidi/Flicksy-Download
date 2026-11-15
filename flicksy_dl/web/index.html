@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#101116">
+  <meta name="description" content="Flicksy — آرشیو فیلم و سریال">
+  <title>Flicksy | آرشیو فیلم و سریال</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Vazirmatn:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <header class="topbar">
+    <a class="brand" href="#" data-page="home" aria-label="Flicksy خانه">
+      <span class="brand-mark">f.</span>
+      <span class="brand-name">flicksy</span>
+    </a>
+
+    <nav class="desktop-nav" aria-label="منوی اصلی">
+      <button class="nav-link active" data-page="home">خانه</button>
+      <button class="nav-link" data-page="movies">فیلم‌ها</button>
+      <button class="nav-link" data-page="series">سریال‌ها</button>
+    </nav>
+
+    <div class="topbar-actions">
+      <button class="search-shortcut" data-page="search">
+        <span class="search-icon">⌕</span>
+        <span>جست‌وجو در آرشیو</span>
+        <kbd>⌘ K</kbd>
+      </button>
+
+      <a class="flicksy-link" href="https://t.me/flicksyrobot" target="_blank" rel="noopener">
+        ورود به Flicksy <span>↗</span>
+      </a>
+    </div>
+  </header>
+
+  <main id="app">
+
+    <!-- HOME -->
+    <section class="page active" id="page-home">
+
+      <section class="poster-hero" id="poster-hero" aria-label="پوسترهای منتخب" hidden>
+        <button class="hero-arrow prev" id="hero-prev" type="button" aria-label="قبلی">‹</button>
+        <div class="hero-track" id="hero-track"></div>
+        <button class="hero-arrow next" id="hero-next" type="button" aria-label="بعدی">›</button>
+        <div class="hero-dots" id="hero-dots"></div>
+      </section>
+
+      <div class="home-layout">
+
+        <!-- RIGHT SIDEBAR -->
+        <aside class="genre-sidebar">
+
+          <section class="genre-panel">
+            <div class="panel-heading">
+              <div>
+                <span class="panel-kicker">MOVIES</span>
+                <h2>ژانر فیلم‌ها</h2>
+              </div>
+              <span class="panel-symbol">▣</span>
+            </div>
+            <div class="genre-list" id="movie-genres"></div>
+          </section>
+
+          <section class="genre-panel">
+            <div class="panel-heading">
+              <div>
+                <span class="panel-kicker">SERIES</span>
+                <h2>ژانر سریال‌ها</h2>
+              </div>
+              <span class="panel-symbol">▤</span>
+            </div>
+            <div class="genre-list" id="series-genres"></div>
+          </section>
+
+          <div class="sidebar-note">
+            <span class="note-mark">F.</span>
+            <p>آرشیو به‌مرور گسترش پیدا می‌کند؛ عنوان‌ها و منابع تازه در راه‌اند.</p>
+          </div>
+
+        </aside>
+
+        <!-- MAIN FEED -->
+        <div class="home-feed">
+
+          <section class="content-section">
+            <div class="section-heading">
+              <div>
+                <span class="section-kicker">RECENTLY ADDED · MOVIES</span>
+                <h2>تازه‌های فیلم</h2>
+                <p>جدیدترین فیلم‌های اضافه‌شده به آرشیو</p>
+              </div>
+              <button class="text-link" data-page="movies">همه فیلم‌ها <span>←</span></button>
+            </div>
+            <div class="movie-grid latest-grid" id="latest-movies-grid"></div>
+          </section>
+
+          <section class="content-section series-section">
+            <div class="section-heading">
+              <div>
+                <span class="section-kicker">RECENTLY ADDED · SERIES</span>
+                <h2>تازه‌های سریال</h2>
+                <p>آخرین سریال‌های اضافه‌شده به آرشیو</p>
+              </div>
+              <button class="text-link" data-page="series">همه سریال‌ها <span>←</span></button>
+            </div>
+            <div class="movie-grid latest-grid" id="latest-series-grid"></div>
+          </section>
+
+        </div>
+      </div>
+
+      <section class="archive-footer-banner">
+        <div>
+          <span class="section-kicker">THE FLICKSY ECOSYSTEM</span>
+          <h2>آرشیو فیلم و سریال، در کنار Flicksy</h2>
+          <p>برای مدیریت فهرست تماشا و دنبال کردن فعالیت دوستانت، به Flicksy سر بزن.</p>
+        </div>
+        <a href="https://t.me/flicksyrobot" target="_blank" rel="noopener" class="primary-button">
+          ورود به Flicksy ↗
+        </a>
+      </section>
+
+    </section>
+
+    <!-- MOVIES -->
+    <section class="page" id="page-movies">
+      <div class="page-heading">
+        <div>
+          <span class="section-kicker">THE MOVIE ARCHIVE</span>
+          <h1>آرشیو فیلم‌ها</h1>
+          <p>فیلم موردنظرت را پیدا کن و نسخه‌های موجود را بررسی کن.</p>
+        </div>
+        <span class="result-count" id="movie-count"></span>
+      </div>
+
+      <div class="catalog-layout">
+        <aside class="catalog-sidebar">
+          <div class="catalog-filter-panel">
+            <h3>دسته‌بندی ژانر</h3>
+            <div class="genre-list" id="catalog-movie-genres"></div>
+          </div>
+        </aside>
+
+        <div class="catalog-main">
+          <div class="catalog-toolbar">
+            <label class="catalog-search">
+              <span>⌕</span>
+              <input id="movie-search" type="search" placeholder="نام فیلم، سال یا ژانر...">
+            </label>
+            <select id="movie-year" aria-label="فیلتر سال">
+              <option value="">همه سال‌ها</option>
+            </select>
+          </div>
+
+          <div class="active-filter" id="movie-active-filter"></div>
+          <div class="movie-grid catalog-grid" id="movies-grid"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SERIES -->
+    <section class="page" id="page-series">
+      <div class="page-heading">
+        <div>
+          <span class="section-kicker">THE SERIES ARCHIVE</span>
+          <h1>آرشیو سریال‌ها</h1>
+          <p>سریال‌ها، فصل‌ها و قسمت‌های موردنظرت را پیدا کن.</p>
+        </div>
+        <span class="result-count" id="series-count"></span>
+      </div>
+
+      <div class="catalog-layout">
+        <aside class="catalog-sidebar">
+          <div class="catalog-filter-panel">
+            <h3>دسته‌بندی ژانر</h3>
+            <div class="genre-list" id="catalog-series-genres"></div>
+          </div>
+        </aside>
+
+        <div class="catalog-main">
+          <div class="catalog-toolbar">
+            <label class="catalog-search">
+              <span>⌕</span>
+              <input id="series-search" type="search" placeholder="نام سریال، سال یا ژانر...">
+            </label>
+            <select id="series-year" aria-label="فیلتر سال">
+              <option value="">همه سال‌ها</option>
+            </select>
+          </div>
+
+          <div class="active-filter" id="series-active-filter"></div>
+          <div class="movie-grid catalog-grid" id="series-grid"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SEARCH -->
+    <section class="page" id="page-search">
+      <div class="search-page">
+        <span class="section-kicker">SEARCH THE ARCHIVE</span>
+        <h1>جست‌وجو در آرشیو</h1>
+        <p>نام فارسی یا انگلیسی فیلم و سریال را وارد کن.</p>
+
+        <label class="large-search">
+          <span>⌕</span>
+          <input id="global-search" type="search" placeholder="مثلاً Interstellar یا میان ستاره‌ای...">
+          <kbd>SEARCH</kbd>
+        </label>
+
+        <div class="search-results-heading">
+          <h2>نتایج جست‌وجو</h2>
+          <span id="search-count"></span>
+        </div>
+
+        <div class="movie-grid catalog-grid" id="search-grid"></div>
+
+        <div class="empty-state" id="search-empty">
+          <span>⌕</span>
+          <strong>عنوانی برای نمایش وجود ندارد</strong>
+          <p>نام یک فیلم یا سریال را جست‌وجو کن.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- DETAILS PAGE -->
+    <section class="page" id="page-detail">
+      <div class="detail-page">
+
+        <button class="back-button" id="detail-back">
+          <span>→</span> بازگشت به آرشیو
+        </button>
+
+        <div id="detail-content"></div>
+
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="footer">
+    <a class="footer-brand" href="#" data-page="home">flicksy<span>.</span></a>
+    <span>DISCOVER MORE. WATCH BETTER.</span>
+    <span>Part of Flicksy ecosystem</span>
+  </footer>
+
+  <nav class="mobile-nav">
+    <button class="mobile-nav-item active" data-page="home">
+      <span>⌂</span><small>خانه</small>
+    </button>
+    <button class="mobile-nav-item" data-page="search">
+      <span>⌕</span><small>جست‌وجو</small>
+    </button>
+    <button class="mobile-nav-item" data-page="movies">
+      <span>▣</span><small>فیلم‌ها</small>
+    </button>
+    <button class="mobile-nav-item" data-page="series">
+      <span>▤</span><small>سریال‌ها</small>
+    </button>
+  </nav>
+
+  <script src="api-client.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
