@@ -39,13 +39,39 @@
     })().catch((e) => { prepared = null; throw e; });
     return prepared;
   }
+  // site tags that live in the genre list but are not real genres
+  const EDITORIAL = new Set(['پیشنهاد سردبیر', 'تازه های باحال', 'محبوب ترین ها']);
+  // best IMDb score first among titles with a poster, a year and at least one link; 10.0 and ~50-genre announcement records are archive junk
+  const ranked = (rows) => rows.filter((x) => x.image && x.year != null && x.imdbScore != null && x.imdbScore < 10 && x.linkCount > 0 && x.genreIds.length <= 15)
+    .sort((a, b) => b.imdbScore - a.imdbScore || b.linkCount - a.linkCount || b.id - a.id);
   const pub = (x) => { const o = Object.assign({}, x); delete o.genreIds; delete o._words; delete o._first; return o; };
   window.Api = {
-    facets: async (s) => ({ success: true, ...(await meta(s)).facets }),
+    facets: async (s) => {
+      const f = Object.assign({}, (await meta(s)).facets);
+      if (!f.countries) {                                   // older meta.json: build the country list from the index
+        const all = await prepare(s), n = {};
+        all.forEach((x) => (x.countries || '').split('،').map((c) => c.trim()).filter(Boolean).forEach((c) => { n[c] = (n[c] || 0) + 1; }));
+        f.countries = Object.keys(n).sort((a, b) => n[b] - n[a] || a.localeCompare(b, 'fa')).map((t, i) => ({ id: i + 1, title: t, count: n[t] }));
+      }
+      return { success: true, ...f };
+    },
     health: async (s) => ({ success: true, ...(await meta(s)).health }),
-    featured: async (limit, s) => ({ success: true, items: (await meta(s)).featured.slice(0, limit || 12) }),
-    top: async (limit, s) => ({ success: true, items: (await meta(s)).top.slice(0, limit || 10) }),
-    shelves: async (genres, per, s) => ({ success: true, shelves: (await meta(s)).shelves.slice(0, genres || 4).map((x) => ({ genre: x.genre, items: x.items.slice(0, per || 12) })) }),
+    featured: async (limit, s) => {
+      let items;
+      try { items = (await getJSON('data/featured.json', s)).items; } catch (e) { items = (await meta(s)).featured; }
+      return { success: true, items: items.slice(0, limit || 12) };
+    },
+    top: async (limit, s) => ({ success: true, items: ranked(await prepare(s)).slice(0, limit || 10).map(pub) }),
+    shelves: async (genres, per, s) => {
+      const all = await prepare(s), m = await meta(s);
+      const gname = {}, count = {};
+      m.facets.genres.forEach((g) => { gname[g.id] = g.title; });
+      all.forEach((x) => x.genreIds.forEach((g) => { count[g] = (count[g] || 0) + 1; }));
+      const ids = Object.keys(count).filter((g) => gname[g] && !EDITORIAL.has(gname[g])).sort((a, b) => count[b] - count[a]).slice(0, genres || 4);
+      const out = ids.map((g) => ({ genre: { id: +g, title: gname[g], count: count[g] },
+        items: ranked(all.filter((x) => x.genreIds.includes(+g))).slice(0, per || 12).map(pub) })).filter((x) => x.items.length);
+      return { success: true, shelves: out };
+    },
     titles: async (p, s) => {
       p = p || {};
       const all = await prepare(s);
