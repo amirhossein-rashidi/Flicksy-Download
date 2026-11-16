@@ -61,8 +61,19 @@
       try { items = (await getJSON('data/featured.json', s)).items; } catch (e) { items = (await meta(s)).featured; }
       return { success: true, items: items.slice(0, limit || 12) };
     },
-    top: async (limit, s) => ({ success: true, items: ranked(await prepare(s)).slice(0, limit || 10).map(pub) }),
+    top: async (limit, s) => {
+      const all = await prepare(s);
+      try {                                                 // data/top.json = ranked ids (popularity), cards come from the index
+        const by = new Map(all.map((x) => [x.id, x])), ids = (await getJSON('data/top.json', s)).ids;
+        return { success: true, items: ids.map((i) => by.get(i)).filter(Boolean).slice(0, limit || 10).map(pub) };
+      } catch (e) { /* older build: compute from the index */ }
+      return { success: true, items: ranked(all).slice(0, limit || 10).map(pub) };
+    },
     shelves: async (genres, per, s) => {
+      try {                                                 // data/shelves.json = genre + ranked ids
+        const all = await prepare(s), by = new Map(all.map((x) => [x.id, x])), sh = (await getJSON('data/shelves.json', s)).shelves;
+        return { success: true, shelves: sh.slice(0, genres || 4).map((x) => ({ genre: x.genre, items: x.ids.map((i) => by.get(i)).filter(Boolean).slice(0, per || 12).map(pub) })) };
+      } catch (e) { /* older build */ }
       const all = await prepare(s), m = await meta(s);
       const gname = {}, count = {};
       m.facets.genres.forEach((g) => { gname[g.id] = g.title; });
