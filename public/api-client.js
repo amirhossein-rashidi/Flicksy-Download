@@ -44,6 +44,8 @@
     facets: async (s) => ({ success: true, ...(await meta(s)).facets }),
     health: async (s) => ({ success: true, ...(await meta(s)).health }),
     featured: async (limit, s) => ({ success: true, items: (await meta(s)).featured.slice(0, limit || 12) }),
+    top: async (limit, s) => ({ success: true, items: (await meta(s)).top.slice(0, limit || 10) }),
+    shelves: async (genres, per, s) => ({ success: true, shelves: (await meta(s)).shelves.slice(0, genres || 4).map((x) => ({ genre: x.genre, items: x.items.slice(0, per || 12) })) }),
     titles: async (p, s) => {
       p = p || {};
       const all = await prepare(s);
@@ -53,7 +55,10 @@
       const kind = p.kind === 'movie' || p.kind === 'series' ? p.kind : null;
       const year = p.year ? parseInt(p.year, 10) : null;
       const genre = p.genre ? parseInt(p.genre, 10) : null;
-      let rows = all.filter((x) => (!kind || x.kind === kind) && (!year || x.year === year) && (!genre || x.genreIds.includes(genre)));
+      const minScore = p.minScore ? parseFloat(p.minScore) : null;
+      const cname = p.country ? (((await meta(s)).facets.countries || []).find((c) => c.id === parseInt(p.country, 10)) || {}).title : null;
+      let rows = all.filter((x) => (!kind || x.kind === kind) && (!year || x.year === year) && (!genre || x.genreIds.includes(genre)) &&
+        (!minScore || (x.imdbScore != null && x.imdbScore >= minScore)) && (!cname || (x.countries || '').split('،').map((c) => c.trim()).includes(cname)));
       if (terms.length) {
         const scored = [];
         for (const x of rows) {

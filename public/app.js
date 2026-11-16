@@ -7,7 +7,7 @@
  */
 
 const PAGE_SIZE = 24;
-const pageNames = ["home", "movies", "series", "search", "detail"];
+const pageNames = ["home", "movies", "series", "search", "browse", "detail"];
 
 const STATUS_TEXT = { working: "کار می‌کند", unavailable: "در دسترس نیست", unverified: "بررسی‌نشده" };
 const SUB_TEXT = { "hardsub-fa": "هاردساب فارسی", "softsub-fa": "زیرنویس فارسی", "dubbed-fa": "دوبله فارسی" };
@@ -21,7 +21,8 @@ const state = {
   catalog: {
     movies: { offset: 0, abort: null, timer: null },
     series: { offset: 0, abort: null, timer: null },
-    search: { offset: 0, abort: null, timer: null }
+    search: { offset: 0, abort: null, timer: null },
+    browse: { offset: 0, abort: null, timer: null }
   }
 };
 
@@ -68,6 +69,8 @@ function toCard(t) {
     year: t.year || "—",
     rating: t.imdbScore > 0 ? Number(t.imdbScore).toFixed(1) : "—",
     image: t.image,
+    genres: t.genres || "",
+    synopsis: t.synopsis || "",
     gradient: gradientFor(t.id)
   };
 }
@@ -109,6 +112,7 @@ function navigate(page) {
     movies: "آرشیو فیلم‌ها | Flicksy",
     series: "آرشیو سریال‌ها | Flicksy",
     search: "جست‌وجو | Flicksy",
+    browse: "نتایج دسته‌بندی | Flicksy",
     detail: state.selectedTitle ? `${state.selectedTitle.title} | Flicksy` : "جزئیات | Flicksy"
   };
   document.title = titles[page];
@@ -218,19 +222,21 @@ function wireGrid(elementId) {
 
 /* ---------------- genres ---------------- */
 
-const GENRE_LIMIT = 35;
+const GENRE_LIMIT = 12;
+// site tags that are not real genres: shown only after the real ones (under "show more")
+const EDITORIAL_TAGS = new Set(["پیشنهاد سردبیر", "تازه های باحال", "محبوب ترین ها", "بیشترین دانلود ها", "سریال های بروز شده", "سریال های برتر", "چینی ژاپنی", "کره ای"]);
 const genreExpanded = {};
 
 function renderGenreButtons(containerId, type) {
   const container = document.getElementById(containerId);
   if (!container || !state.facets) return;
   const kind = kindOfPage(type);
-  const all = [...(state.facets.genresByKind[kind] || [])].sort((a, b) => b.count - a.count || a.title.localeCompare(b.title, "fa"));
+  const all = [...(state.facets.genresByKind[kind] || [])].sort((a, b) => (EDITORIAL_TAGS.has(a.title) - EDITORIAL_TAGS.has(b.title)) || b.count - a.count || a.title.localeCompare(b.title, "fa"));
   const selected = state.selectedGenre[type];
   const total = state.facets.totals[kind] || 0;
   const expanded = Boolean(genreExpanded[containerId]);
 
-  // always keep the selected genre visible even if it is beyond the first 35
+  // always keep the selected genre visible even if it is beyond the first ones
   let shown = expanded ? all : all.slice(0, GENRE_LIMIT);
   const sel = all.find(g => String(g.id) === selected);
   if (sel && !shown.includes(sel)) shown = [...shown, sel];
@@ -554,92 +560,219 @@ async function openDetails(id, push) {
   }
 }
 
-/* ---------------- home poster carousel ---------------- */
+/* ---------------- home: banner (poster background, swipe) ---------------- */
 
-const hero = { items: [], index: 0, timer: null };
+const banner = { items: [], index: 0, timer: null, dir: 1 };
 
-function heroSlideHTML(item, i) {
+function thumbHTML(item, cls) {
   const url = safeURL(item.image);
-  const img = url
-    ? `<img class="poster-image" data-fallback="1" src="${escapeHTML(url)}" alt="پوستر ${escapeHTML(item.title)}" ${i < 5 ? "" : 'loading="lazy"'} decoding="async" referrerpolicy="no-referrer">`
-    : "";
-  const imdb = item.rating !== "—" ? `<span>IMDb ${escapeHTML(item.rating)}</span>` : "";
-  return `
-    <article class="hero-slide" data-i="${i}" data-pos="9" style="--poster-gradient:${escapeHTML(item.gradient)}" role="button" tabindex="-1" aria-label="${escapeHTML(item.title)}">
-      ${img}<div class="poster-image-fallback" ${url ? "hidden" : ""}>${escapeHTML(item.original)}</div>
-      <div class="hero-slide-info">${imdb}<b>${escapeHTML(item.original)}</b></div>
-    </article>`;
+  return `<span class="${cls}" style="--poster-gradient:${escapeHTML(item.gradient)}">${url
+    ? `<img class="poster-image" data-fallback="1" src="${escapeHTML(url)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer">` : ""}</span>`;
 }
 
-function heroRender() {
-  const n = hero.items.length;
-  document.querySelectorAll("#hero-track .hero-slide").forEach((el, i) => {
-    let d = (i - hero.index + n) % n;
-    if (d > n / 2) d -= n;
-    el.dataset.pos = Math.abs(d) > 2 ? "9" : String(d);
-    el.tabIndex = d === 0 ? 0 : -1;
-  });
-  document.querySelectorAll("#hero-dots i").forEach((dot, i) => dot.classList.toggle("on", i === hero.index));
+function bannerRender() {
+  const it = banner.items[banner.index];
+  const url = safeURL(it.image);
+  const tags = (it.genres || "").split("،").map(x => x.trim()).filter(Boolean).slice(0, 3);
+  const meta = [it.year, getTypeLabel(it.type)].filter(Boolean).join(" • ");
+  const main = document.getElementById("banner-main");
+  main.style.setProperty("--poster-gradient", it.gradient);
+  main.innerHTML = `
+    <div class="banner-slide" data-dir="${banner.dir}">
+      <div class="banner-bg">${url ? `<img data-fallback="1" src="${escapeHTML(url)}" alt="" decoding="async" referrerpolicy="no-referrer">` : ""}</div>
+      <div class="banner-shade"></div>
+      <span class="banner-label">تازه‌های برتر</span>
+      <div class="banner-text">
+        <div class="banner-tags">${tags.map(t => `<span>${escapeHTML(t)}</span>`).join("")}</div>
+        <h2>${escapeHTML(it.title)}</h2>
+        <div class="banner-orig">${escapeHTML(it.original)}</div>
+        <div class="banner-meta">${escapeHTML(meta)}${it.rating !== "—" ? ` <b class="imdb-pill">IMDb ${escapeHTML(it.rating)}</b>` : ""}</div>
+        ${it.synopsis ? `<p>${escapeHTML(it.synopsis)}</p>` : ""}
+        <button class="primary-button" type="button" data-open="${it.id}">مشاهدهٔ نسخه‌ها ←</button>
+      </div>
+    </div>
+    <div class="banner-dots" aria-hidden="true">${banner.items.map((_, i) => `<i class="${i === banner.index ? "on" : ""}"></i>`).join("")}</div>`;
+  document.querySelectorAll("#banner-list .banner-item").forEach((el, i) => el.classList.toggle("active", i === banner.index));
 }
 
-function heroGo(i) {
-  const n = hero.items.length;
-  hero.index = (i + n) % n;
-  heroRender();
+function bannerGo(i) {
+  const n = banner.items.length;
+  const next = (i + n) % n;
+  banner.dir = i >= banner.index ? 1 : -1;
+  banner.index = next;
+  bannerRender();
 }
 
-function heroAuto(on) {
-  clearInterval(hero.timer);
+function bannerAuto(on) {
+  clearInterval(banner.timer);
   if (on && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-    hero.timer = setInterval(() => heroGo(hero.index + 1), 5000);
+    banner.timer = setInterval(() => bannerGo(banner.index + 1), 7000);
   }
 }
 
-function setupHero(items) {
-  const section = document.getElementById("poster-hero");
-  if (items.length < 5) return;                         // not enough posters: keep the carousel hidden
-  hero.items = items;
-  document.getElementById("hero-track").innerHTML = items.map(heroSlideHTML).join("");
-  document.getElementById("hero-dots").innerHTML = items.map((_, i) => `<i data-d="${i}"></i>`).join("");
+function setupBanner(items) {
+  const section = document.getElementById("home-banner");
+  if (items.length < 3) return;                          // too few titles: keep the banner hidden
+  banner.items = items.slice(0, 6);
+  document.getElementById("banner-list").innerHTML = banner.items.map((it, i) => `
+    <button class="banner-item" type="button" data-i="${i}">
+      ${thumbHTML(it, "banner-thumb")}
+      <span class="banner-item-text"><b>${escapeHTML(it.title)}</b><small>${escapeHTML([it.year, getTypeLabel(it.type)].join(" • "))}</small></span>
+    </button>`).join("");
   section.hidden = false;
-  heroRender();
-  heroAuto(true);
+  bannerRender();
+  bannerAuto(true);
+
+  // swipe / drag: left = next, right = previous (page is right-to-left)
+  const main = document.getElementById("banner-main");
+  let x0 = null, moved = false;
+  main.addEventListener("pointerdown", e => { x0 = e.clientX; moved = false; });
+  main.addEventListener("pointermove", e => { if (x0 !== null && Math.abs(e.clientX - x0) > 10) moved = true; });
+  main.addEventListener("pointerup", e => {
+    if (x0 === null) return;
+    const dx = e.clientX - x0;
+    x0 = null;
+    if (Math.abs(dx) > 45) { bannerGo(banner.index + (dx < 0 ? 1 : -1)); bannerAuto(true); }
+  });
+  main.addEventListener("pointercancel", () => { x0 = null; });
+  main.addEventListener("keydown", e => {
+    if (e.key === "ArrowLeft") { bannerGo(banner.index + 1); bannerAuto(true); }
+    if (e.key === "ArrowRight") { bannerGo(banner.index - 1); bannerAuto(true); }
+  });
 
   section.addEventListener("click", event => {
-    const dot = event.target.closest("[data-d]");
-    if (dot) return heroGo(Number(dot.dataset.d));
-    const slide = event.target.closest(".hero-slide");
-    if (!slide) return;
-    const i = Number(slide.dataset.i);
-    if (i === hero.index) openDetails(hero.items[i].id, true); else heroGo(i);
+    if (moved) { moved = false; return; }                // a drag is not a click
+    const open = event.target.closest("[data-open]");
+    if (open) return openDetails(Number(open.dataset.open), true);
+    const item = event.target.closest(".banner-item");
+    if (item) { bannerGo(Number(item.dataset.i)); bannerAuto(true); }
   });
-  section.addEventListener("keydown", event => {
-    if (event.key === "Enter" && event.target.closest(".hero-slide")) openDetails(hero.items[hero.index].id, true);
-    if (event.key === "ArrowLeft") heroGo(hero.index - 1);
-    if (event.key === "ArrowRight") heroGo(hero.index + 1);
+  section.addEventListener("mouseenter", () => bannerAuto(false));
+  section.addEventListener("mouseleave", () => bannerAuto(true));
+  section.addEventListener("focusin", () => bannerAuto(false));
+  section.addEventListener("focusout", () => bannerAuto(true));
+  document.addEventListener("visibilitychange", () => bannerAuto(!document.hidden));
+}
+
+/* ---------------- home: IMDb top row + genre shelves ---------------- */
+
+function wireClicks(element) {
+  const open = card => card && openDetails(Number(card.dataset.id), true);
+  element.addEventListener("click", event => open(event.target.closest("[data-id]")));
+  element.addEventListener("keydown", event => {
+    if (event.key === "Enter" || event.key === " ") {
+      const card = event.target.closest("[data-id]");
+      if (card) { event.preventDefault(); open(card); }
+    }
   });
-  document.getElementById("hero-prev").addEventListener("click", () => heroGo(hero.index - 1));
-  document.getElementById("hero-next").addEventListener("click", () => heroGo(hero.index + 1));
-  section.addEventListener("mouseenter", () => heroAuto(false));
-  section.addEventListener("mouseleave", () => heroAuto(true));
-  section.addEventListener("focusin", () => heroAuto(false));
-  section.addEventListener("focusout", () => heroAuto(true));
-  let x0 = null;
-  section.addEventListener("pointerdown", e => { x0 = e.clientX; });
-  section.addEventListener("pointerup", e => {
-    if (x0 !== null && Math.abs(e.clientX - x0) > 50) heroGo(hero.index + (e.clientX < x0 ? 1 : -1));
-    x0 = null;
+}
+
+function setupTop(items) {
+  if (items.length < 3) return;
+  const row = document.getElementById("top-row");
+  row.innerHTML = items.map((it, i) => `
+    <article class="top-item" data-id="${it.id}" tabindex="0" role="button" aria-label="${escapeHTML(it.title)}">
+      <span class="top-rank" aria-hidden="true">${i + 1}</span>
+      <div class="poster top-poster" style="--poster-gradient:${escapeHTML(it.gradient)}">${posterHTML(it)}<span class="poster-year">${escapeHTML(it.year)}</span></div>
+      <div class="top-info"><b>${escapeHTML(it.title)}</b><small>★ ${escapeHTML(it.rating)} · ${getTypeLabel(it.type)}</small></div>
+    </article>`).join("");
+  wireClicks(row);
+  document.getElementById("top-section").hidden = false;
+}
+
+function setupShelves(shelves) {
+  const host = document.getElementById("genre-shelves");
+  host.innerHTML = shelves.filter(s => s.items.length >= 4).map((s, k) => `
+    <section class="content-section shelf" data-shelf="${k}">
+      <div class="section-heading">
+        <div><span class="section-kicker">TOP RATED · GENRE</span><h2>برترین‌های ${escapeHTML(s.genre.title)}</h2><p>بهترین امتیازها در ژانر ${escapeHTML(s.genre.title)}</p></div>
+        <button class="text-link" type="button" data-genre="${s.genre.id}">همهٔ فیلم‌های این ژانر <span>←</span></button>
+      </div>
+      <div class="shelf-row">${s.items.map(it => createMovieCard(toCard(it))).join("")}</div>
+    </section>`).join("");
+  wireClicks(host);
+  host.addEventListener("click", event => {
+    const b = event.target.closest("[data-genre]");
+    if (!b) return;
+    state.selectedGenre.movies = b.dataset.genre;
+    renderAllGenres();
+    loadCatalog("movies", true);
+    navigate("movies");
   });
-  document.addEventListener("visibilitychange", () => heroAuto(!document.hidden));
+}
+
+/* ---------------- menu drawer + detailed filters ---------------- */
+
+function setDrawer(open) {
+  const drawer = document.getElementById("drawer");
+  drawer.hidden = !open;
+  document.getElementById("menu-btn").setAttribute("aria-expanded", String(open));
+  document.body.classList.toggle("drawer-open", open);
+  if (open) drawer.querySelector(".drawer-panel button, .drawer-panel select")?.focus();
+}
+
+const browse = { params: {} };
+
+function fillFilterOptions() {
+  const f = state.facets;
+  const opt = (v, t) => `<option value="${v}">${escapeHTML(t)}</option>`;
+  const genres = [...f.genres].filter(g => !EDITORIAL_TAGS.has(g.title)).sort((a, b) => a.title.localeCompare(b.title, "fa"));
+  document.getElementById("f-genre").insertAdjacentHTML("beforeend", genres.map(g => opt(g.id, g.title)).join(""));
+  document.getElementById("f-country").insertAdjacentHTML("beforeend", (f.countries || []).map(c => opt(c.id, `${c.title} (${c.count})`)).join(""));
+  let years = "";
+  for (let y = f.yearMax; y >= f.yearMin; y--) years += opt(y, y);
+  document.getElementById("f-year").insertAdjacentHTML("beforeend", years);
+}
+
+function browseChips() {
+  const label = (id, value) => {
+    const el = document.getElementById(id);
+    const o = [...el.options].find(x => x.value === String(value));
+    return o ? o.textContent.replace(/\s*\(\d+\)$/, "") : value;
+  };
+  const p = browse.params, chips = [];
+  if (p.kind) chips.push(label("f-kind", p.kind));
+  if (p.genre) chips.push("ژانر " + label("f-genre", p.genre));
+  if (p.country) chips.push("کشور " + label("f-country", p.country));
+  if (p.minScore) chips.push("IMDb " + p.minScore + "+");
+  if (p.year) chips.push("سال " + p.year);
+  document.getElementById("browse-chips").innerHTML = chips.length
+    ? chips.map(c => `<span class="filter-chip">${escapeHTML(c)}</span>`).join("") : '<span class="filter-chip">بدون فیلتر</span>';
+}
+
+function runBrowse(reset) {
+  browseChips();
+  return fetchInto("browse", browse.params, "browse-grid", "browse-count", reset, document.getElementById("browse-grid-more"));
+}
+
+function setupDrawer() {
+  document.getElementById("menu-btn").addEventListener("click", () => setDrawer(true));
+  document.querySelectorAll("[data-drawer-close]").forEach(el => el.addEventListener("click", () => setDrawer(false)));
+  document.querySelectorAll(".drawer-nav [data-page]").forEach(el => el.addEventListener("click", () => setDrawer(false)));
+  document.addEventListener("keydown", e => { if (e.key === "Escape" && !document.getElementById("drawer").hidden) setDrawer(false); });
+
+  document.getElementById("filter-form").addEventListener("submit", event => {
+    event.preventDefault();
+    const v = id => document.getElementById(id).value;
+    browse.params = { kind: v("f-kind"), genre: v("f-genre"), country: v("f-country"), minScore: v("f-score"), year: v("f-year") };
+    Object.keys(browse.params).forEach(k => { if (!browse.params[k]) delete browse.params[k]; });
+    setDrawer(false);
+    runBrowse(true);
+    if (location.hash) history.replaceState(null, "", location.pathname + location.search);
+    navigate("browse");
+  });
+  document.getElementById("filter-reset").addEventListener("click", () => document.getElementById("filter-form").reset());
+  document.getElementById("browse-grid-more").addEventListener("click", () => runBrowse(false));
 }
 
 /* ---------------- start ---------------- */
 
 async function initialize() {
   setupNavigation();
-  ["latest-movies-grid", "latest-series-grid", "movies-grid", "series-grid", "search-grid"].forEach(wireGrid);
-  document.getElementById("latest-movies-grid-more").remove();
-  document.getElementById("latest-series-grid-more").remove();
+  ["movies-grid", "series-grid", "search-grid", "browse-grid"].forEach(wireGrid);
+  wireClicks(document.getElementById("latest-movies-grid"));
+  wireClicks(document.getElementById("latest-series-grid"));
+  setupDrawer();
   setupCatalogFilters();
   setupSearch();
   document.getElementById("search-empty").style.display = "flex";
@@ -655,17 +788,20 @@ async function initialize() {
     fill("movie-year");
     fill("series-year");
 
+    fillFilterOptions();
     renderAllGenres();
   } catch (e) {
     showError("latest-movies-grid", e);
     return;
   }
 
-  Api.featured(12).then(r => setupHero(r.items.map(toCard))).catch(() => {});
+  Api.featured(8).then(r => setupBanner(r.items.map(toCard))).catch(() => {});
+  Api.top(10).then(r => setupTop(r.items.map(toCard))).catch(() => {});
+  Api.shelves(4, 12).then(r => setupShelves(r.shelves)).catch(() => {});
 
   const [lm, ls] = await Promise.all([
-    Api.titles({ kind: "movie", limit: 4 }).catch(e => (showError("latest-movies-grid", e), null)),
-    Api.titles({ kind: "series", limit: 4 }).catch(e => (showError("latest-series-grid", e), null))
+    Api.titles({ kind: "movie", limit: 14 }).catch(e => (showError("latest-movies-grid", e), null)),
+    Api.titles({ kind: "series", limit: 14 }).catch(e => (showError("latest-series-grid", e), null))
   ]);
   if (lm) renderGrid("latest-movies-grid", lm.items.map(toCard));
   if (ls) renderGrid("latest-series-grid", ls.items.map(toCard));

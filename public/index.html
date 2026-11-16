@@ -16,6 +16,7 @@
 <body>
 
   <header class="topbar">
+    <button class="menu-btn" id="menu-btn" type="button" aria-label="منو" aria-expanded="false" aria-controls="drawer"><span></span><span></span><span></span></button>
     <a class="brand" href="#" data-page="home" aria-label="Flicksy خانه">
       <span class="brand-mark">f.</span>
       <span class="brand-name">flicksy</span>
@@ -45,18 +46,67 @@
     <!-- HOME -->
     <section class="page active" id="page-home">
 
-      <section class="poster-hero" id="poster-hero" aria-label="پوسترهای منتخب" hidden>
-        <button class="hero-arrow prev" id="hero-prev" type="button" aria-label="قبلی">‹</button>
-        <div class="hero-track" id="hero-track"></div>
-        <button class="hero-arrow next" id="hero-next" type="button" aria-label="بعدی">›</button>
-        <div class="hero-dots" id="hero-dots"></div>
+      <section class="home-banner" id="home-banner" aria-label="تازه‌های برتر" hidden>
+        <div class="banner-body">
+          <article class="banner-main" id="banner-main" aria-roledescription="carousel"></article>
+          <div class="banner-list" id="banner-list" role="tablist"></div>
+        </div>
+      </section>
+
+      <section class="content-section top-section" id="top-section" hidden>
+        <div class="section-heading">
+          <div>
+            <span class="section-kicker">TOP RATED · IMDB</span>
+            <h2>برترین‌ها بر اساس IMDb</h2>
+            <p>بالاترین امتیاز در بین عنوان‌هایی که نسخهٔ قابل‌دریافت دارند</p>
+          </div>
+        </div>
+        <div class="top-row" id="top-row"></div>
       </section>
 
       <div class="home-layout">
 
-        <!-- RIGHT SIDEBAR -->
-        <aside class="genre-sidebar">
+        <!-- MAIN FEED -->
+        <div class="home-feed">
 
+          <section class="content-section">
+            <div class="section-heading">
+              <div>
+                <span class="section-kicker">RECENTLY ADDED · MOVIES</span>
+                <h2>تازه‌های فیلم</h2>
+                <p>جدیدترین فیلم‌های اضافه‌شده به آرشیو</p>
+              </div>
+              <button class="text-link" data-page="movies">همه فیلم‌ها <span>←</span></button>
+            </div>
+            <div class="shelf-row" id="latest-movies-grid"></div>
+          </section>
+
+          <section class="content-section series-section">
+            <div class="section-heading">
+              <div>
+                <span class="section-kicker">RECENTLY ADDED · SERIES</span>
+                <h2>تازه‌های سریال</h2>
+                <p>آخرین سریال‌های اضافه‌شده به آرشیو</p>
+              </div>
+              <button class="text-link" data-page="series">همه سریال‌ها <span>←</span></button>
+            </div>
+            <div class="shelf-row" id="latest-series-grid"></div>
+          </section>
+
+          <div id="genre-shelves"></div>
+
+        </div>
+      </div>
+
+      <section class="content-section home-genres" id="home-genres">
+        <div class="section-heading">
+          <div>
+            <span class="section-kicker">GENRES</span>
+            <h2>ژانرهای اصلی</h2>
+            <p>برای دیدن همهٔ عنوان‌های یک ژانر، رویش بزن</p>
+          </div>
+        </div>
+        <div class="home-genre-grid">
           <section class="genre-panel">
             <div class="panel-heading">
               <div>
@@ -78,43 +128,8 @@
             </div>
             <div class="genre-list" id="series-genres"></div>
           </section>
-
-          <div class="sidebar-note">
-            <span class="note-mark">F.</span>
-            <p>آرشیو به‌مرور گسترش پیدا می‌کند؛ عنوان‌ها و منابع تازه در راه‌اند.</p>
-          </div>
-
-        </aside>
-
-        <!-- MAIN FEED -->
-        <div class="home-feed">
-
-          <section class="content-section">
-            <div class="section-heading">
-              <div>
-                <span class="section-kicker">RECENTLY ADDED · MOVIES</span>
-                <h2>تازه‌های فیلم</h2>
-                <p>جدیدترین فیلم‌های اضافه‌شده به آرشیو</p>
-              </div>
-              <button class="text-link" data-page="movies">همه فیلم‌ها <span>←</span></button>
-            </div>
-            <div class="movie-grid latest-grid" id="latest-movies-grid"></div>
-          </section>
-
-          <section class="content-section series-section">
-            <div class="section-heading">
-              <div>
-                <span class="section-kicker">RECENTLY ADDED · SERIES</span>
-                <h2>تازه‌های سریال</h2>
-                <p>آخرین سریال‌های اضافه‌شده به آرشیو</p>
-              </div>
-              <button class="text-link" data-page="series">همه سریال‌ها <span>←</span></button>
-            </div>
-            <div class="movie-grid latest-grid" id="latest-series-grid"></div>
-          </section>
-
         </div>
-      </div>
+      </section>
 
       <section class="archive-footer-banner">
         <div>
@@ -230,6 +245,19 @@
     </section>
 
     <!-- DETAILS PAGE -->
+    <section class="page" id="page-browse">
+      <div class="page-heading">
+        <div>
+          <span class="section-kicker">FILTERED ARCHIVE</span>
+          <h1>نتایج دسته‌بندی</h1>
+          <p>عنوان‌هایی که با فیلترهای انتخابی‌ات می‌خوانند.</p>
+        </div>
+        <span class="result-count" id="browse-count"></span>
+      </div>
+      <div class="active-filter" id="browse-chips"></div>
+      <div class="movie-grid catalog-grid" id="browse-grid"></div>
+    </section>
+
     <section class="page" id="page-detail">
       <div class="detail-page">
 
@@ -250,20 +278,48 @@
     <span>Part of Flicksy ecosystem</span>
   </footer>
 
-  <nav class="mobile-nav">
-    <button class="mobile-nav-item active" data-page="home">
-      <span>⌂</span><small>خانه</small>
-    </button>
-    <button class="mobile-nav-item" data-page="search">
-      <span>⌕</span><small>جست‌وجو</small>
-    </button>
-    <button class="mobile-nav-item" data-page="movies">
-      <span>▣</span><small>فیلم‌ها</small>
-    </button>
-    <button class="mobile-nav-item" data-page="series">
-      <span>▤</span><small>سریال‌ها</small>
-    </button>
-  </nav>
+  <div class="drawer" id="drawer" hidden>
+    <div class="drawer-backdrop" data-drawer-close></div>
+    <aside class="drawer-panel" role="dialog" aria-modal="true" aria-label="منو">
+      <div class="drawer-head">
+        <b>منو</b>
+        <button class="round-btn" type="button" data-drawer-close aria-label="بستن">✕</button>
+      </div>
+      <nav class="drawer-nav" aria-label="صفحه‌ها">
+        <button type="button" data-page="home">خانه</button>
+        <button type="button" data-page="search">جست‌وجو</button>
+        <button type="button" data-page="movies">فیلم‌ها</button>
+        <button type="button" data-page="series">سریال‌ها</button>
+      </nav>
+      <form class="drawer-filters" id="filter-form">
+        <h3>دسته‌بندی دقیق</h3>
+        <label>نوع
+          <select id="f-kind">
+            <option value="">فیلم و سریال</option>
+            <option value="movie">فقط فیلم</option>
+            <option value="series">فقط سریال</option>
+          </select>
+        </label>
+        <label>ژانر <select id="f-genre"><option value="">همه ژانرها</option></select></label>
+        <label>کشور سازنده <select id="f-country"><option value="">همه کشورها</option></select></label>
+        <label>حداقل امتیاز IMDb
+          <select id="f-score">
+            <option value="">بدون محدودیت</option>
+            <option value="5">۵ به بالا</option>
+            <option value="6">۶ به بالا</option>
+            <option value="7">۷ به بالا</option>
+            <option value="8">۸ به بالا</option>
+            <option value="9">۹ به بالا</option>
+          </select>
+        </label>
+        <label>سال ساخت <select id="f-year"><option value="">همه سال‌ها</option></select></label>
+        <div class="drawer-actions">
+          <button class="primary-button" type="submit">نمایش نتایج</button>
+          <button class="outline-button" type="button" id="filter-reset">پاک کردن</button>
+        </div>
+      </form>
+    </aside>
+  </div>
 
   <script src="api-client.js"></script>
   <script src="app.js"></script>
