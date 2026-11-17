@@ -1,0 +1,42 @@
+name: check-hosts
+
+on:
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: check hosts
+        run: |
+          urls="
+          https://sjdcbjdhbcsjhhsdjcbjsd.mehracdn.com/Film/
+          https://sjdcbjdhbcsjhhsdjcbjsd.mehracdn.com/Series/
+          https://sjdcbjdhbscjnhsdjcbjsd.mehracdn.com/pnot/
+          https://sjdcbjhdbscjhbsdjbcjsd.mehracdn.com/Film/
+          https://sjdcbjhdbscjhbsdjcbjsd.mehracdn.com/yA3f/
+          https://tokyo.saymyname.website/Movies
+          https://tokyo.saymyname.website/Series
+          https://nairobi.saymyname.website/Movies
+          https://nairobi.saymyname.website/Series
+          https://berlin.saymyname.website/
+          https://helsinki.saymyname.website/
+          https://nairobi.saymyname.website/
+          https://saymyname.website/
+          https://subtitle.saymyname.website/
+          https://tokyo.saymyname.website/
+          https://dl11.sermoviedown.pw/
+          https://dl12.sermoviedown.pw/
+          https://dl2.sermoviedown.pw/
+          https://dl3.sermoviedown.pw/
+          https://dl4.sermoviedown.pw/
+          https://dl5.sermoviedown.pw/
+          https://dl6.sermoviedown.pw/
+          https://sermoviedown.pw/
+          "
+          for u in $urls; do
+            code=$(curl -s -o /dev/null -I -m 20 -w "%{http_code}" "$u" || true)
+            echo "$code $u"
+            sleep 1
+          done
