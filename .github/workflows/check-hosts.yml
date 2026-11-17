@@ -6,7 +6,7 @@ on:
 jobs:
   check:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - name: check hosts
         run: |
@@ -17,26 +17,21 @@ jobs:
           https://sjdcbjhdbscjhbsdjbcjsd.mehracdn.com/Film/
           https://sjdcbjhdbscjhbsdjcbjsd.mehracdn.com/yA3f/
           https://tokyo.saymyname.website/Movies
-          https://tokyo.saymyname.website/Series
           https://nairobi.saymyname.website/Movies
-          https://nairobi.saymyname.website/Series
           https://berlin.saymyname.website/
           https://helsinki.saymyname.website/
-          https://nairobi.saymyname.website/
           https://saymyname.website/
           https://subtitle.saymyname.website/
-          https://tokyo.saymyname.website/
-          https://dl11.sermoviedown.pw/
-          https://dl12.sermoviedown.pw/
-          https://dl2.sermoviedown.pw/
-          https://dl3.sermoviedown.pw/
-          https://dl4.sermoviedown.pw/
           https://dl5.sermoviedown.pw/
           https://dl6.sermoviedown.pw/
           https://sermoviedown.pw/
           "
           for u in $urls; do
-            code=$(curl -s -o /dev/null -I -m 20 -w "%{http_code}" "$u" || true)
-            echo "$code $u"
+            echo "=== $u"
+            curl -sS -m 25 -D /tmp/h.txt -o /tmp/b.txt -w "code=%{http_code}\n" "$u" 2>&1 | tail -3
+            grep -iE '^(server|via|cf-ray|retry-after|content-type):' /tmp/h.txt 2>/dev/null | head -6
+            head -c 200 /tmp/b.txt 2>/dev/null | tr '\n\r' '  '
+            echo
+            rm -f /tmp/h.txt /tmp/b.txt
             sleep 1
           done
