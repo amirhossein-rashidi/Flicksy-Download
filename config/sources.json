@@ -1,0 +1,68 @@
+{
+  "publish_hosts": [
+    "giftmond.ir",
+    "mehracdn.com",
+    "dl175m.info",
+    "dl150m.info"
+  ],
+  "sources": [
+    {
+      "id": "mehra",
+      "label": "mehracdn (همهٔ پوشه‌ها)",
+      "needs_iran_ip": true,
+      "start_urls": [
+        "https://sjdcbjdhbcsjhhsdjcbjsd.mehracdn.com/Film/",
+        "https://sjdcbjdhbcsjhhsdjcbjsd.mehracdn.com/Series/",
+        "https://sjdcbjdhbscjnhsdjcbjsd.mehracdn.com/pnot/",
+        "https://sjdcbjhdbscjhbsdjbcjsd.mehracdn.com/Film/",
+        "https://sjdcbjhdbscjhbsdjcbjsd.mehracdn.com/yA3f/"
+      ]
+    },
+    {
+      "id": "saymyname",
+      "label": "saymyname (فقط آی‌پی ایران)",
+      "needs_iran_ip": true,
+      "start_urls": [
+        "https://tokyo.saymyname.website/Movies",
+        "https://tokyo.saymyname.website/Series",
+        "https://tokyo.saymyname.website/",
+        "https://nairobi.saymyname.website/Movies",
+        "https://nairobi.saymyname.website/Series",
+        "https://nairobi.saymyname.website/",
+        "https://berlin.saymyname.website/",
+        "https://subtitle.saymyname.website/",
+        "https://saymyname.website/"
+      ]
+    },
+    {
+      "id": "saymyname-helsinki",
+      "label": "saymyname helsinki (آزاد)",
+      "needs_iran_ip": false,
+      "start_urls": [
+        "https://helsinki.saymyname.website/"
+      ]
+    },
+    {
+      "id": "sermovie",
+      "label": "sermoviedown (آزاد)",
+      "needs_iran_ip": false,
+      "start_urls": [
+        "https://dl2.sermoviedown.pw/",
+        "https://dl3.sermoviedown.pw/",
+        "https://dl4.sermoviedown.pw/",
+        "https://dl5.sermoviedown.pw/",
+        "https://dl11.sermoviedown.pw/",
+        "https://dl12.sermoviedown.pw/"
+      ]
+    },
+    {
+      "id": "sermovie-iran",
+      "label": "sermoviedown (در گیتهاب جواب نداد)",
+      "needs_iran_ip": true,
+      "start_urls": [
+        "https://dl6.sermoviedown.pw/",
+        "https://sermoviedown.pw/"
+      ]
+    }
+  ]
+}
