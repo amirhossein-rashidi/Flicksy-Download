@@ -3,7 +3,7 @@
 (function () {
   const SHARD = 500;
   const DIAC = /[\u064B-\u065F\u0670\u0640]/g;
-  const MAP = { 'ي': 'ی', 'ك': 'ک', 'ۀ': 'ه', 'ة': 'ه', 'أ': 'ا', 'إ': 'ا', 'ٱ': 'ا', '‌': ' ', '‏': ' ', '‎': ' ', '&': ' and ' };
+  const MAP = { 'ي': 'ی', 'ك': 'ک', 'ۀ': 'ه', 'ة': 'ه', 'أ': 'ا', 'إ': 'ا', 'ٱ': 'ا', '\u200c': ' ', '\u200f': ' ', '\u200e': ' ', '&': ' and ' };
   '۰۱۲۳۴۵۶۷۸۹'.split('').forEach((c, i) => { MAP[c] = String(i); });
   '٠١٢٣٤٥٦٧٨٩'.split('').forEach((c, i) => { MAP[c] = String(i); });
   // same rules as flicksy_dl/textnorm.py norm()
@@ -82,6 +82,13 @@
       const out = ids.map((g) => ({ genre: { id: +g, title: gname[g], count: count[g] },
         items: ranked(all.filter((x) => x.genreIds.includes(+g))).slice(0, per || 12).map(pub) })).filter((x) => x.items.length);
       return { success: true, shelves: out };
+    },
+    // data/tmdb-rows.json = TMDB lists already matched to our titles (written by tools/tmdb_sync.py); null if missing
+    tmdb: async (s) => { try { return await getJSON('data/tmdb-rows.json', s); } catch (e) { return null; } },
+    // turns [{id,title}] from tmdb-rows.json into cards; an item is dropped if the id now belongs to another title
+    resolve: async (items, s) => {
+      const all = await prepare(s), by = new Map(all.map((x) => [x.id, x]));
+      return (items || []).map((i) => by.get(i.id)).filter((x, k) => x && (!items[k].title || x.title === items[k].title)).map(pub);
     },
     titles: async (p, s) => {
       p = p || {};
