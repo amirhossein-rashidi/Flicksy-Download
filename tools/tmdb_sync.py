@@ -32,7 +32,15 @@ LISTS = [
     ('air-tv', 'series', '/tv/on_the_air', 'سریال‌های در حال پخش', 'ON THE AIR'),
 ]
 MIN_ROW = 4          # ردیف کمتر از این تعداد نشان داده نمی‌شود
-MAX_ROW = 20
+MAX_ROW = 40
+
+# شبکه‌ها و پلتفرم‌ها (شناسهٔ TMDB، نام)
+NETWORKS = [
+    (213, 'Netflix'), (49, 'HBO'), (2739, 'Disney+'), (2552, 'Apple TV+'), (1024, 'Prime Video'),
+    (453, 'Hulu'), (4330, 'Paramount+'), (174, 'AMC'), (88, 'FX'), (67, 'Showtime'),
+    (71, 'The CW'), (4, 'BBC One'), (3353, 'Peacock'),
+]
+SCHEDULE_DAYS = 7
 
 
 def log(*a):
@@ -98,6 +106,22 @@ def match(item, kind, lookup):
     return best[1] if best else None
 
 
+def collect(path, params, kind, lookup, token, pages):
+    """-> (items, seen)"""
+    ids, items, seen = set(), [], 0
+    for page in range(1, pages + 1):
+        data = http_json(path, token, params + '&page=%d' % page)
+        for it in data.get('results', []):
+            seen += 1
+            m = match(it, kind, lookup)
+            if m and m[1] not in ids:
+                ids.add(m[1])
+                items.append({'id': m[1], 'tmdb': it['id'], 'kind': kind, 'title': m[3]})
+        if page >= data.get('total_pages', 1):
+            break
+    return items, seen
+
+
 def main():
     token = os.environ.get('TMDB_TOKEN', '').strip()
     if not token:
@@ -146,14 +170,31 @@ def main():
         if len(banner) == 8:
             break
 
+    networks = []
+    for nid, name in NETWORKS:
+        items, seen = collect('/discover/tv', 'language=en-US&sort_by=popularity.desc&with_networks=%d' % nid,
+                              'series', lookup, token, PAGES)
+        log('network %-12s %3d of %3d matched' % (name, len(items), seen))
+        if len(items) >= MIN_ROW:
+            networks.append({'id': nid, 'name': name, 'items': items[:MAX_ROW]})
+
+    schedule = []
+    today = time.time()
+    for d in range(SCHEDULE_DAYS):
+        day = time.strftime('%Y-%m-%d', time.gmtime(today + d * 86400))
+        items, seen = collect('/discover/tv', 'language=en-US&sort_by=popularity.desc&air_date.gte=%s&air_date.lte=%s' % (day, day),
+                              'series', lookup, token, 3)
+        log('schedule %s %3d of %3d matched' % (day, len(items), seen))
+        schedule.append({'date': day, 'items': items[:20]})
+
     out = {'updated': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()), 'imgBase': IMG,
-           'banner': banner, 'rows': rows}
+           'banner': banner, 'rows': rows, 'networks': networks, 'schedule': schedule}
     dst = os.path.join(PUBLIC_DATA, 'tmdb-rows.json')
     tmp = dst + '.tmp'
     with open(tmp, 'w', encoding='utf-8') as f:
         json.dump(out, f, ensure_ascii=False, separators=(',', ':'))
     os.replace(tmp, dst)
-    log('OK: %d rows, %d banner items, matched %d of %d' % (len(rows), len(banner), matched_total, seen_total))
+    log('OK: %d rows, %d banner items, %d networks, %d schedule days, matched %d of %d' % (len(rows), len(banner), len(networks), len(schedule), matched_total, seen_total))
 
 
 if __name__ == '__main__':
