@@ -270,11 +270,10 @@ function initHero() {
 async function vHome(R, tk) {
   put(topbar(true) + `<div class="sk" style="height:210px;border-radius:22px"></div>${skel(3)}`, tk, false);
   try {
-    const [tm, lm, ls, top, shelves] = await Promise.all([
+    const [tm, lm, ls, shelves] = await Promise.all([
       Api.tmdb(),
       Api.titles({ kind: "movie", limit: 14 }),
       Api.titles({ kind: "series", limit: 14 }),
-      Api.top(10).catch(() => ({ items: [] })),
       Api.shelves(4, 12).catch(() => ({ shelves: [] }))
     ]);
     if (tk !== token) return;
@@ -301,6 +300,7 @@ async function vHome(R, tk) {
 
     if (tm && tm.rows) {
       for (const r of tm.rows) {
+        if (TOP_ROWS.has(r.key)) continue;                  // these live in the Top tab
         const cards = (await Api.resolve(r.items)).map(toCard);
         if (cards.length >= 4) html += sec(rowTitle(r), row(cards.slice(0, 14)), `#list?row=${enc(r.key)}`);
       }
@@ -310,7 +310,6 @@ async function vHome(R, tk) {
     }
     html += sec(t("latestMovies"), row(lm.items.map(toCard)), "#list?kind=movie");
     html += sec(t("latestSeries"), row(ls.items.map(toCard)), "#list?kind=series");
-    if (top.items.length >= 3) html += sec(t("topImdb"), row(top.items.map(toCard)));
     for (const s of shelves.shelves) {
       if (s.items.length >= 4) html += sec(t("topGenre")(genreName(s.genre.title)), row(s.items.map(toCard)), `#list?genre=${s.genre.id}`);
     }
@@ -329,6 +328,8 @@ const rowTitle = r => (lang === "en" ? r.titleEn || titleCase(r.kicker) : r.titl
 
 /* ---------------- top (ranked lists) ---------------- */
 
+const TOP_ROWS = new Set(["top-movie", "top-tv", "popular-movie", "popular-tv"]);
+
 async function vTop(R, tk) {
   put(topbar(true) + `<div class="title">${esc(t("top"))}</div>${skel(3)}`, tk, false);
   try {
@@ -336,7 +337,7 @@ async function vTop(R, tk) {
     if (tk !== token) return;
     let html = topbar(true) + `<div class="title">${esc(t("top"))}</div>`;
     if (tm && tm.rows) {
-      for (const key of ["top-movie", "top-tv", "popular-movie", "popular-tv"]) {
+      for (const key of TOP_ROWS) {
         const r = tm.rows.find(x => x.key === key);
         if (!r) continue;
         const cards = (await Api.resolve(r.items)).map(toCard);
@@ -470,11 +471,15 @@ async function vSchedule(R, tk) {
 
 /* ---------------- title page ---------------- */
 
+const hasFa = v => /[\u0600-\u06FF]/.test(v || "");
+const onlyLang = v => (lang === "en" && hasFa(v) ? "" : v);      // English view: drop Persian-only text coming from the source data
+const epName = e => (!e.title || /^قسمت\s*\d+$/.test(e.title) || onlyLang(e.title) === "" ? t("episode")(num(e.number)) : e.title);
+
 function mapLink(l) {
   return {
-    quality: [l.resolution ? l.resolution + "p" : l.qualityText, l.sourceTag, l.codec, l.audio].filter(Boolean).join(" · "),
+    quality: [l.resolution ? l.resolution + "p" : onlyLang(l.qualityText), l.sourceTag, l.codec, l.audio].filter(Boolean).join(" · "),
     format: l.container ? String(l.container).toUpperCase() : "", size: fmtSize(l.sizeBytes), language: SUB_KEY[l.subtitle] ? t(SUB_KEY[l.subtitle]) : "",
-    status: l.status, url: l.url, releaseName: l.releaseName, group: l.releaseGroup, host: l.host, ambiguous: l.ambiguousMatch, lastChecked: l.lastChecked
+    status: l.status, url: l.url, releaseName: l.releaseName, group: onlyLang(l.releaseGroup), host: l.host, ambiguous: l.ambiguousMatch, lastChecked: l.lastChecked
   };
 }
 
@@ -513,7 +518,14 @@ let seasonsData = [], season = 0;
 
 function episodesHTML() {
   const s = seasonsData[season];
-  return s.episodes.map(e => accordion(e.title || t("episode")(num(e.number)), e.duration || "", e.links.map(mapLink), false)).join("") || `<div class="note">${esc(t("noEps"))}</div>`;
+  return s.episodes.map(e => accordion(epName(e), onlyLang(e.duration) || "", e.links.map(mapLink), false)).join("") || `<div class="note">${esc(t("noEps"))}</div>`;
+}
+
+// description: our own synopsis, or TMDB's English overview when ours is empty (English view prefers TMDB's)
+function overviewOf(x, cd) {
+  const e = cd && cd.titles && cd.titles[x.id];
+  const en = e && e.t === x.title && e.o ? e.o : "";
+  return lang === "en" ? (en || x.synopsis) : (x.synopsis || en);
 }
 
 function titleHTML(x, tm, cd) {
@@ -525,7 +537,8 @@ function titleHTML(x, tm, cd) {
   const bdPath = tm && tm.backdrops && tm.backdrops[x.id];
   const bd = bdPath ? (tm.imgBase || "https://image.tmdb.org/t/p/") + "w780" + bdPath : "";
   const clean = v => (v ? String(v).replace(/\s+,/g, ",") : v);
-  const facts = [[t("director"), clean(x.director)], [t("cast"), clean(x.stars)], [t("country"), countriesText(x.countries)]].filter(f => f[1]);
+  const castSec = castHTML(x, cd);          // when the cast row is shown, the plain text list of names is not repeated in the details
+  const facts = [[t("director"), clean(x.director)], [t("cast"), castSec ? "" : clean(x.stars)], [t("country"), countriesText(x.countries)]].filter(f => f[1]);
   let downloads;
   if (isMovie) {
     downloads = x.releases.length ? groupByHost(x.releases).map(([h, l], i) => accordion(h, t("versions")(num(l.length)), l, i === 0)).join("") : `<div class="note">${esc(t("noLinkMovie"))}</div>`;
@@ -545,9 +558,9 @@ function titleHTML(x, tm, cd) {
       <div class="hi"><h1>${esc(c.title)}</h1>
       <div class="meta"><span class="pill">${typ(x.kind)}</span>${x.year ? `<span>${num(x.year)}</span>` : ""}${length ? `<span>${esc(length)}</span>` : ""}${c.rating ? `<span class="star">★ ${esc(num(c.rating))}</span>` : ""}</div></div></div>
     ${genres.length ? `<div class="gline">${genres.map(g => `<a href="#list?kind=${x.kind}&genre=${g.id}">${esc(genreName(g.title))}</a>`).join(" · ")}</div>` : ""}
-    <p class="ov" id="ov" dir="auto">${esc(x.synopsis || t("noSynopsis"))}</p>
+    <p class="ov" id="ov" dir="auto">${esc(overviewOf(x, cd) || t("noSynopsis"))}</p>
     <button class="textbtn" data-act="ov">${esc(t("readMore"))} ${lang === "fa" ? "‹" : "›"}</button>
-    ${castHTML(x, cd)}
+    ${castSec}
     ${facts.length ? sec(t("specs"), `<div class="facts">${facts.map(f => `<div class="fact"><span>${esc(f[0])}</span><strong dir="auto">${esc(f[1])}</strong></div>`).join("")}</div>${dups}`) : dups}
     ${sec(isMovie ? t("dlMovie") : t("dlSeries"), `${downloads}${hidden}<p class="note">${esc(t("statusNote"))}</p>`)}`;
 }
