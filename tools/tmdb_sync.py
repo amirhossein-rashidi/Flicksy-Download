@@ -41,6 +41,9 @@ NETWORKS = [
     (71, 'The CW'), (4, 'BBC One'), (3353, 'Peacock'),
 ]
 SCHEDULE_DAYS = 7
+CAST_PER_TITLE = 12     # حداکثر بازیگر برای هر عنوان
+CAST_KEEP = 1500        # حداکثر تعداد عنوان در فایل بازیگران
+CAST_MAX_AGE = 30 * 86400   # بازیگران قدیمی‌تر از این دوباره گرفته می‌شوند
 BACKDROPS = {}   # شناسهٔ عنوان در سایت ما -> مسیر عکس پس‌زمینهٔ TMDB
 
 
@@ -50,7 +53,7 @@ def log(*a):
 
 def norm(t):
     t = (t or '').lower().replace('&', ' and ').replace("'", '').replace('’', '')
-    t = re.sub(r'[^a-z0-9\u00c0-\u024f\u0400-\u04ff\u3040-\u30ff\u4e00-\u9fff\uac00-\ud7af]+', ' ', t).strip()
+    t = re.sub(r'[^a-z0-9À-ɏЀ-ӿ぀-ヿ一-鿿가-힯]+', ' ', t).strip()
     t = re.sub(r'^(the|a|an) ', '', t)
     return t
 
@@ -72,6 +75,65 @@ def http_json(path, token, params=''):
             last = e
         time.sleep(2 * (i + 1))
     raise SystemExit('TMDB request failed: %s (%s)' % (path, last))
+
+
+def network_logo(nid, token):
+    """لوگوی شبکه از TMDB؛ اگر نشد None"""
+    try:
+        data = http_json('/network/%d' % nid, token)
+    except SystemExit as e:
+        log('logo failed for network', nid, e)
+        return None
+    path = data.get('logo_path')
+    return (IMG + 'w185' + path) if path else None
+
+
+def load_json(path):
+    try:
+        with open(path, encoding='utf-8') as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return {}
+
+
+def write_json(path, obj):
+    tmp = path + '.tmp'
+    with open(tmp, 'w', encoding='utf-8') as f:
+        json.dump(obj, f, ensure_ascii=False, separators=(',', ':'))
+    os.replace(tmp, path)
+
+
+def sync_cast(refs, token):
+    """بازیگران عنوان‌های ردیف‌ها -> public/data/tmdb-cast.json (قبلی‌ها نگه داشته می‌شوند)"""
+    dst = os.path.join(PUBLIC_DATA, 'tmdb-cast.json')
+    old = load_json(dst).get('titles', {})
+    now = time.time()
+    titles = {k: v for k, v in old.items() if isinstance(v, dict) and v.get('c') is not None}
+    fetched = 0
+    for oid, ref in refs.items():
+        key = str(oid)
+        cur = titles.get(key)
+        if cur and cur.get('t') == ref['title'] and now - cur.get('a', 0) < CAST_MAX_AGE:
+            continue
+        path = ('/movie/%d/credits' if ref['kind'] == 'movie' else '/tv/%d/credits') % ref['tmdb']
+        try:
+            data = http_json(path, token, 'language=en-US')
+        except SystemExit as e:
+            log('cast failed for', ref['title'], e)
+            continue
+        cast = []
+        for p in data.get('cast', []):
+            if p.get('profile_path') and p.get('name'):
+                cast.append([p['name'], (p.get('character') or '')[:40], p['profile_path']])
+            if len(cast) >= CAST_PER_TITLE:
+                break
+        titles[key] = {'t': ref['title'], 'a': int(now), 'c': cast}
+        fetched += 1
+    if len(titles) > CAST_KEEP:
+        keep = sorted(titles.items(), key=lambda kv: -kv[1].get('a', 0))[:CAST_KEEP]
+        titles = dict(keep)
+    write_json(dst, {'updated': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()), 'imgBase': IMG, 'titles': titles})
+    log('cast: %d fetched now, %d titles in file' % (fetched, len(titles)))
 
 
 def build_lookup(index):
@@ -181,7 +243,7 @@ def main():
                               'series', lookup, token, PAGES)
         log('network %-12s %3d of %3d matched' % (name, len(items), seen))
         if len(items) >= MIN_ROW:
-            networks.append({'id': nid, 'name': name, 'items': items[:MAX_ROW]})
+            networks.append({'id': nid, 'name': name, 'logo': network_logo(nid, token), 'items': items[:MAX_ROW]})
 
     schedule = []
     today = time.time()
@@ -192,14 +254,27 @@ def main():
         log('schedule %s %3d of %3d matched' % (day, len(items), seen))
         schedule.append({'date': day, 'items': items[:20]})
 
+    refs = {}
+    def add_ref(it):
+        if it['id'] not in refs:
+            refs[it['id']] = it
+    for r in rows:
+        for it in r['items']:
+            add_ref(it)
+    for b in banner:
+        add_ref(b)
+    for n in networks:
+        for it in n['items']:
+            add_ref(it)
+    for d in schedule:
+        for it in d['items']:
+            add_ref(it)
+
     out = {'updated': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()), 'imgBase': IMG,
            'banner': banner, 'rows': rows, 'networks': networks, 'schedule': schedule, 'backdrops': BACKDROPS}
-    dst = os.path.join(PUBLIC_DATA, 'tmdb-rows.json')
-    tmp = dst + '.tmp'
-    with open(tmp, 'w', encoding='utf-8') as f:
-        json.dump(out, f, ensure_ascii=False, separators=(',', ':'))
-    os.replace(tmp, dst)
+    write_json(os.path.join(PUBLIC_DATA, 'tmdb-rows.json'), out)
     log('OK: %d rows, %d banner items, %d networks, %d schedule days, matched %d of %d' % (len(rows), len(banner), len(networks), len(schedule), matched_total, seen_total))
+    sync_cast(refs, token)
 
 
 if __name__ == '__main__':
