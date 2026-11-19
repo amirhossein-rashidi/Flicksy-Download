@@ -20,16 +20,16 @@ API = 'https://api.themoviedb.org/3'
 IMG = 'https://image.tmdb.org/t/p/'
 PAGES = 3  # هر صفحه ۲۰ عنوان
 
-# (کلید، نوع، مسیر TMDB، عنوان فارسی، عنوان انگلیسی)
+# (کلید، نوع، مسیر TMDB، عنوان فارسی، برچسب، عنوان انگلیسی)
 LISTS = [
-    ('trending-movie', 'movie', '/trending/movie/week', 'فیلم‌های ترند هفته', 'TRENDING MOVIES'),
-    ('trending-tv', 'series', '/trending/tv/week', 'سریال‌های ترند هفته', 'TRENDING SERIES'),
-    ('popular-movie', 'movie', '/movie/popular', 'محبوب‌ترین فیلم‌ها', 'POPULAR MOVIES'),
-    ('popular-tv', 'series', '/tv/popular', 'محبوب‌ترین سریال‌ها', 'POPULAR SERIES'),
-    ('top-movie', 'movie', '/movie/top_rated', 'برترین فیلم‌ها در TMDB', 'TOP RATED MOVIES'),
-    ('top-tv', 'series', '/tv/top_rated', 'برترین سریال‌ها در TMDB', 'TOP RATED SERIES'),
-    ('now-movie', 'movie', '/movie/now_playing', 'در حال اکران', 'NOW PLAYING'),
-    ('air-tv', 'series', '/tv/on_the_air', 'سریال‌های در حال پخش', 'ON THE AIR'),
+    ('trending-movie', 'movie', '/trending/movie/week', 'فیلم‌های ترند هفته', 'TRENDING MOVIES', 'Trending Movies'),
+    ('trending-tv', 'series', '/trending/tv/week', 'سریال‌های ترند هفته', 'TRENDING SERIES', 'Trending Series'),
+    ('popular-movie', 'movie', '/movie/popular', 'محبوب‌ترین فیلم‌ها', 'POPULAR MOVIES', 'Popular Movies'),
+    ('popular-tv', 'series', '/tv/popular', 'محبوب‌ترین سریال‌ها', 'POPULAR SERIES', 'Popular Series'),
+    ('top-movie', 'movie', '/movie/top_rated', 'برترین فیلم‌ها در TMDB', 'TOP RATED MOVIES', 'Top Rated Movies'),
+    ('top-tv', 'series', '/tv/top_rated', 'برترین سریال‌ها در TMDB', 'TOP RATED SERIES', 'Top Rated Series'),
+    ('now-movie', 'movie', '/movie/now_playing', 'در حال اکران', 'NOW PLAYING', 'Now Playing'),
+    ('air-tv', 'series', '/tv/on_the_air', 'سریال‌های در حال پخش', 'ON THE AIR', 'On The Air'),
 ]
 MIN_ROW = 4          # ردیف کمتر از این تعداد نشان داده نمی‌شود
 MAX_ROW = 40
@@ -41,6 +41,7 @@ NETWORKS = [
     (71, 'The CW'), (4, 'BBC One'), (3353, 'Peacock'),
 ]
 SCHEDULE_DAYS = 7
+BACKDROPS = {}   # شناسهٔ عنوان در سایت ما -> مسیر عکس پس‌زمینهٔ TMDB
 
 
 def log(*a):
@@ -114,6 +115,8 @@ def collect(path, params, kind, lookup, token, pages):
         for it in data.get('results', []):
             seen += 1
             m = match(it, kind, lookup)
+            if m and it.get('backdrop_path'):
+                BACKDROPS[m[1]] = it['backdrop_path']
             if m and m[1] not in ids:
                 ids.add(m[1])
                 items.append({'id': m[1], 'tmdb': it['id'], 'kind': kind, 'title': m[3]})
@@ -133,13 +136,15 @@ def main():
 
     rows, seen_total, matched_total = [], 0, 0
     banner_pool = []
-    for key, kind, path, fa, en in LISTS:
+    for key, kind, path, fa, kicker, en in LISTS:
         ids, items, seen = set(), [], 0
         for page in range(1, PAGES + 1):
             data = http_json(path, token, 'language=en-US&page=%d' % page)
             for it in data.get('results', []):
                 seen += 1
                 m = match(it, kind, lookup)
+                if m and it.get('backdrop_path'):
+                    BACKDROPS[m[1]] = it['backdrop_path']
                 if not m or m[1] in ids:
                     continue
                 ids.add(m[1])
@@ -153,7 +158,7 @@ def main():
         matched_total += len(items)
         log('%-15s %3d of %3d matched' % (key, len(items), seen))
         if len(items) >= MIN_ROW:
-            rows.append({'key': key, 'kind': kind, 'title': fa, 'kicker': en, 'items': items[:MAX_ROW]})
+            rows.append({'key': key, 'kind': kind, 'title': fa, 'titleEn': en, 'kicker': kicker, 'items': items[:MAX_ROW]})
 
     if seen_total == 0 or not rows:
         raise SystemExit('no usable rows - keeping the old file')
@@ -188,7 +193,7 @@ def main():
         schedule.append({'date': day, 'items': items[:20]})
 
     out = {'updated': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()), 'imgBase': IMG,
-           'banner': banner, 'rows': rows, 'networks': networks, 'schedule': schedule}
+           'banner': banner, 'rows': rows, 'networks': networks, 'schedule': schedule, 'backdrops': BACKDROPS}
     dst = os.path.join(PUBLIC_DATA, 'tmdb-rows.json')
     tmp = dst + '.tmp'
     with open(tmp, 'w', encoding='utf-8') as f:
