@@ -87,7 +87,7 @@
     tmdb: async (s) => { try { return await getJSON('data/tmdb-rows.json', s); } catch (e) { return null; } },
     // turns [{id,title}] from tmdb-rows.json into cards; an item is dropped if the id now belongs to another title
     resolve: async (items, s) => {
-      const all = await prepare(s), by = new Map(all.map((x) => [x.id, x]));
+      const all = await prepare(s), by = all.by || (all.by = new Map(all.map((x) => [x.id, x])));
       return (items || []).map((i) => by.get(i.id)).filter((x, k) => x && (!items[k].title || x.title === items[k].title)).map(pub);
     },
     titles: async (p, s) => {
