@@ -45,6 +45,7 @@ CAST_PER_TITLE = 12     # حداکثر بازیگر برای هر عنوان
 CAST_KEEP = 1500        # حداکثر تعداد عنوان در فایل بازیگران
 CAST_MAX_AGE = 30 * 86400   # بازیگران قدیمی‌تر از این دوباره گرفته می‌شوند
 BACKDROPS = {}   # شناسهٔ عنوان در سایت ما -> مسیر عکس پس‌زمینهٔ TMDB
+OVERVIEWS = {}   # شناسهٔ عنوان در سایت ما -> خلاصهٔ انگلیسی TMDB
 
 
 def log(*a):
@@ -129,6 +130,10 @@ def sync_cast(refs, token):
                 break
         titles[key] = {'t': ref['title'], 'a': int(now), 'c': cast}
         fetched += 1
+    for oid in refs:                      # خلاصهٔ انگلیسی برای عنوان‌هایی که توضیح فارسی ندارند
+        key = str(oid)
+        if key in titles and OVERVIEWS.get(oid):
+            titles[key]['o'] = OVERVIEWS[oid][:700]
     if len(titles) > CAST_KEEP:
         keep = sorted(titles.items(), key=lambda kv: -kv[1].get('a', 0))[:CAST_KEEP]
         titles = dict(keep)
@@ -179,6 +184,8 @@ def collect(path, params, kind, lookup, token, pages):
             m = match(it, kind, lookup)
             if m and it.get('backdrop_path'):
                 BACKDROPS[m[1]] = it['backdrop_path']
+            if m and it.get('overview'):
+                OVERVIEWS[m[1]] = it['overview']
             if m and m[1] not in ids:
                 ids.add(m[1])
                 items.append({'id': m[1], 'tmdb': it['id'], 'kind': kind, 'title': m[3]})
@@ -207,6 +214,8 @@ def main():
                 m = match(it, kind, lookup)
                 if m and it.get('backdrop_path'):
                     BACKDROPS[m[1]] = it['backdrop_path']
+                if m and it.get('overview'):
+                    OVERVIEWS[m[1]] = it['overview']
                 if not m or m[1] in ids:
                     continue
                 ids.add(m[1])
