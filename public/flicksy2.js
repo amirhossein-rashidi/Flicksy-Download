@@ -2,7 +2,7 @@
 
 /*
  * Flicksy-Download — web UI, same design as the Flicksy Mini App (floating bottom bar, header, hero, cards).
- * Data only through window.Api (api-client.js). Tabs: home, browse, schedule, search.
+ * Data only through window.Api (api-client.js). Tabs: home, browse, schedule, top (search = header icon).
  * Deep links kept: #title-<id> opens a title page. Language: Persian / English (saved in the browser).
  * Titles are always shown in English; Persian names stay searchable.
  */
@@ -15,7 +15,7 @@ const nav = document.getElementById("nav");
 
 const STR = {
   fa: {
-    sub: "آرشیو دانلود فیلم و سریال", home: "خانه", browse: "دسته\u200cبندی", schedule: "جدول پخش", search: "جستجو",
+    sub: "آرشیو دانلود فیلم و سریال", home: "خانه", browse: "دسته\u200cبندی", schedule: "جدول پخش", search: "جستجو", top: "برترین\u200cها", topArchive: "پرطرفدارترین\u200cها در آرشیو ما",
     searchHint: "نام فارسی یا انگلیسی فیلم یا سریال را بنویس.", searchPh: "مثلاً Interstellar یا میان\u200cستاره\u200cای",
     latestMovies: "تازه\u200cهای فیلم", latestSeries: "تازه\u200cهای سریال", topImdb: "برترین\u200cها بر اساس IMDb",
     topGenre: g => `برترین\u200cهای ${g}`, networks: "شبکه\u200cها و پلتفرم\u200cها", allMovies: "همه فیلم\u200cها", allSeries: "همه سریال\u200cها",
@@ -39,7 +39,7 @@ const STR = {
     creditEnd: "سر بزن.", hardsub: "هاردساب فارسی", softsub: "زیرنویس فارسی", dubbed: "دوبله فارسی", langBtn: "EN"
   },
   en: {
-    sub: "Download archive", home: "Home", browse: "Browse", schedule: "Schedule", search: "Search",
+    sub: "Download archive", home: "Home", browse: "Browse", schedule: "Schedule", search: "Search", top: "Top", topArchive: "Most popular in our archive",
     searchHint: "Type an English or Persian title.", searchPh: "e.g. Interstellar or a Persian name",
     latestMovies: "New movies", latestSeries: "New series", topImdb: "Top rated on IMDb",
     topGenre: g => `Top ${g}`, networks: "Networks & platforms", allMovies: "All movies", allSeries: "All series",
@@ -119,8 +119,9 @@ const typ = k => (k === "movie" ? t("movie") : t("series"));
 
 const ICON = {
   home: '<path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',
-  browse: '<circle cx="12" cy="12" r="9"/><path d="m15.5 8.5-2 5-5 2 2-5z"/>',
-  schedule: '<path d="M3 12h4l3-8 4 16 3-8h4"/>',
+  browse: '<rect x="3.5" y="3.5" width="7" height="7" rx="2"/><rect x="13.5" y="3.5" width="7" height="7" rx="2"/><rect x="3.5" y="13.5" width="7" height="7" rx="2"/><rect x="13.5" y="13.5" width="7" height="7" rx="2"/>',
+  schedule: '<rect x="3.5" y="5" width="17" height="15.5" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4"/>',
+  top: '<path d="M8 4h8v5a4 4 0 0 1-8 0z"/><path d="M8 6H5v1a3 3 0 0 0 3 3M16 6h3v1a3 3 0 0 1-3 3"/><path d="M12 13v4M8.5 20h7M10 17h4"/>',
   search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
   chev: '<path d="m9 6 6 6-6 6"/>',
   back: '<path d="m15 6-6 6 6 6"/>',
@@ -129,7 +130,7 @@ const ICON = {
 const svg = (n, cls) => `<svg class="ic ${cls || ""}" viewBox="0 0 24 24" aria-hidden="true">${ICON[n]}</svg>`;
 
 function renderNav() {
-  nav.innerHTML = ["home", "browse", "schedule", "search"].map(k =>
+  nav.innerHTML = ["home", "browse", "schedule", "top"].map(k =>
     `<a href="#${k}" data-tab="${k}" aria-label="${esc(t(k))}" class="${k === lastTab ? "on" : ""}">${svg(k)}<span>${esc(t(k))}</span></a>`).join("");
 }
 
@@ -185,7 +186,7 @@ const grid = l => `<div class="grid">${l.map(tile).join("")}</div>`;
 const sec = (title, body, href) => `<section class="sec"><div class="sec-h"><h2>${esc(title)}</h2><i class="ln"></i>${href ? `<a class="more" href="${href}" aria-label="${esc(title)}">${svg("chev", "flip")}</a>` : ""}</div>${body}</section>`;
 const chip = (label, href, on, extra) => `<a class="chip${on ? " on" : ""}" href="${href}">${esc(label)}${extra ? `<small>${esc(extra)}</small>` : ""}</a>`;
 const langBtn = () => `<button class="iconbtn" data-act="lang" aria-label="Language">${t("langBtn")}</button>`;
-const topbar = withSearch => `<header class="topbar"><div class="who"><span class="av">f.</span><div><small>${esc(t("sub"))}</small><b>Flicksy</b></div></div>
+const topbar = withSearch => `<header class="topbar"><div class="who"><span class="av" role="img" aria-label="Flicksy"></span><div><small>${esc(t("sub"))}</small><b>Flicksy</b></div></div>
   <div class="tb">${langBtn()}${withSearch ? `<a class="iconbtn" href="#search" aria-label="${esc(t("search"))}">${svg("search")}</a>` : ""}</div></header>`;
 const backBar = title => `<div class="back"><button class="iconbtn" data-act="back" aria-label="${esc(t("back"))}">${svg("back", "flip")}</button><h1>${esc(title || "")}</h1>${langBtn()}</div>`;
 const empty = (m, l, h) => `<div class="empty"><p>${esc(m)}</p>${l ? `<a class="btn" href="${h}">${esc(l)}</a>` : ""}</div>`;
@@ -219,16 +220,17 @@ function parseHash() {
   const m = h.match(/^title-(\d+)$/);
   if (m) return { r: "title", id: Number(m[1]) };
   if (h.startsWith("list?")) return { r: "list", p: new URLSearchParams(h.slice(5)) };
-  return { r: ["browse", "schedule", "search"].includes(h) ? h : "home" };
+  return { r: ["browse", "schedule", "search", "top"].includes(h) ? h : "home" };
 }
 
 function route(keepScroll) {
   const R = parseHash(), tk = ++token;
   clearInterval(timer);
-  if (["home", "browse", "schedule", "search"].includes(R.r)) lastTab = R.r;
+  if (["home", "browse", "schedule", "top"].includes(R.r)) lastTab = R.r;
+  else if (R.r === "search") lastTab = "";
   renderNav();
   document.title = "Flicksy | " + t("sub");
-  ({ home: vHome, browse: vBrowse, schedule: vSchedule, search: vSearch, list: vList, title: vTitle }[R.r])(R, tk);
+  ({ home: vHome, browse: vBrowse, schedule: vSchedule, search: vSearch, top: vTop, list: vList, title: vTitle }[R.r])(R, tk);
   if (keepScroll !== true) window.scrollTo(0, 0);
 }
 
@@ -304,7 +306,7 @@ async function vHome(R, tk) {
       }
     }
     if (tm && tm.networks && tm.networks.length) {
-      html += sec(t("networks"), `<div class="row">${tm.networks.map(n => `<a class="net" style="background:${gradientFor(n.id)}" href="#list?net=${n.id}">${esc(n.name)}</a>`).join("")}</div>`);
+      html += sec(t("networks"), `<div class="row">${tm.networks.map(n => `<a class="net" style="background:${gradientFor(n.id)}" href="#list?net=${n.id}" aria-label="${esc(n.name)}">${netInner(n)}</a>`).join("")}</div>`);
     }
     html += sec(t("latestMovies"), row(lm.items.map(toCard)), "#list?kind=movie");
     html += sec(t("latestSeries"), row(ls.items.map(toCard)), "#list?kind=series");
@@ -320,8 +322,32 @@ async function vHome(R, tk) {
   }
 }
 
+// network card: the network's own logo (white, one colour); the name shows if there is no logo or it fails to load
+const netInner = n => { const u = safeURL(n.logo); return u ? `<img data-fb="1" src="${esc(u)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer"><span class="fb" hidden>${esc(n.name)}</span>` : esc(n.name); };
 const titleCase = s => String(s || "").toLowerCase().replace(/\b[a-z]/g, c => c.toUpperCase());
 const rowTitle = r => (lang === "en" ? r.titleEn || titleCase(r.kicker) : r.title);
+
+/* ---------------- top (ranked lists) ---------------- */
+
+async function vTop(R, tk) {
+  put(topbar(true) + `<div class="title">${esc(t("top"))}</div>${skel(3)}`, tk, false);
+  try {
+    const [tm, top] = await Promise.all([Api.tmdb(), Api.top(24).catch(() => ({ items: [] }))]);
+    if (tk !== token) return;
+    let html = topbar(true) + `<div class="title">${esc(t("top"))}</div>`;
+    if (tm && tm.rows) {
+      for (const key of ["top-movie", "top-tv", "popular-movie", "popular-tv"]) {
+        const r = tm.rows.find(x => x.key === key);
+        if (!r) continue;
+        const cards = (await Api.resolve(r.items)).map(toCard);
+        if (cards.length >= 4) html += sec(rowTitle(r), row(cards.slice(0, 14)), `#list?row=${enc(r.key)}`);
+      }
+    }
+    if (top.items.length >= 3) html += sec(t("topArchive"), grid(top.items.map(toCard)));
+    if (html.indexOf('class="sec"') < 0) html += empty(t("noResult"));
+    put(html, tk);
+  } catch (e) { console.error(e); put(topbar(false) + fail(), tk, false); }
+}
 
 /* ---------------- browse (categories) ---------------- */
 
@@ -473,6 +499,16 @@ function groupByHost(releases) {
   return [...groups];
 }
 
+let castPromise = null;
+const loadCast = () => castPromise || (castPromise = fetch("data/tmdb-cast.json").then(r => (r.ok ? r.json() : null)).catch(() => null));
+
+function castHTML(x, cd) {
+  const e = cd && cd.titles && cd.titles[x.id];
+  if (!e || e.t !== x.title || !e.c || !e.c.length) return "";
+  const base = safeURL((cd.imgBase || "https://image.tmdb.org/t/p/") + "w185") ? (cd.imgBase || "https://image.tmdb.org/t/p/") : "https://image.tmdb.org/t/p/";
+  return sec(t("cast"), `<div class="cast">${e.c.map(a => `<div class="actor"><div class="ph"><img data-fb="1" src="${esc(base + "w185" + a[2])}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer"></div><b dir="ltr">${esc(a[0])}</b>${a[1] ? `<small dir="ltr">${esc(a[1])}</small>` : ""}</div>`).join("")}</div>`);
+}
+
 let seasonsData = [], season = 0;
 
 function episodesHTML() {
@@ -480,7 +516,7 @@ function episodesHTML() {
   return s.episodes.map(e => accordion(e.title || t("episode")(num(e.number)), e.duration || "", e.links.map(mapLink), false)).join("") || `<div class="note">${esc(t("noEps"))}</div>`;
 }
 
-function titleHTML(x, tm) {
+function titleHTML(x, tm, cd) {
   const isMovie = x.kind === "movie", c = toCard(x);
   seasonsData = x.seasons || []; season = 0;
   const epCount = seasonsData.reduce((n, s) => n + s.episodes.length, 0);
@@ -511,6 +547,7 @@ function titleHTML(x, tm) {
     ${genres.length ? `<div class="gline">${genres.map(g => `<a href="#list?kind=${x.kind}&genre=${g.id}">${esc(genreName(g.title))}</a>`).join(" · ")}</div>` : ""}
     <p class="ov" id="ov" dir="auto">${esc(x.synopsis || t("noSynopsis"))}</p>
     <button class="textbtn" data-act="ov">${esc(t("readMore"))} ${lang === "fa" ? "‹" : "›"}</button>
+    ${castHTML(x, cd)}
     ${facts.length ? sec(t("specs"), `<div class="facts">${facts.map(f => `<div class="fact"><span>${esc(f[0])}</span><strong dir="auto">${esc(f[1])}</strong></div>`).join("")}</div>${dups}`) : dups}
     ${sec(isMovie ? t("dlMovie") : t("dlSeries"), `${downloads}${hidden}<p class="note">${esc(t("statusNote"))}</p>`)}`;
 }
@@ -518,11 +555,11 @@ function titleHTML(x, tm) {
 async function vTitle(R, tk) {
   put(`<div class="sk" style="height:290px;margin:0 -16px"></div>${skel(3)}`, tk, false);
   try {
-    const [r, tm] = await Promise.all([Api.title(R.id), Api.tmdb()]);
+    const [r, tm, cd] = await Promise.all([Api.title(R.id), Api.tmdb(), loadCast()]);
     if (tk !== token) return;
     const x = r.title;
     document.title = `${x.title || x.titleFa} | Flicksy`;
-    put(titleHTML(x, tm), tk);
+    put(titleHTML(x, tm, cd), tk);
   } catch (e) {
     put(backBar("") + empty(e.status === 404 ? t("notFound") : t("loadError"), t("backHome"), "#home"), tk, false);
   }
