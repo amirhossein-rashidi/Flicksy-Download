@@ -30,6 +30,19 @@ html[dir=rtl] .flip{transform:scaleX(-1)}
 .sin{width:100%;height:48px;border-radius:15px;background:var(--surface);border:1px solid var(--line);padding:0 14px;font-size:15px;margin-bottom:14px;cursor:text}
 .sk{background:linear-gradient(90deg,var(--surface) 25%,var(--surface-2) 50%,var(--surface) 75%);background-size:200% 100%;animation:shine 1.8s linear infinite;border-radius:12px}
 @keyframes shine{to{background-position:-200% 0}}
+/* loading skeletons: same shapes and spacing as the real page */
+.sk-hero{height:210px;border-radius:22px}
+.sk-sec{display:flex;align-items:center;gap:12px;margin:26px 0 12px}
+.sk-sec .t{width:42%;height:22px;border-radius:8px}
+.sk-sec .l{flex:1;height:1px;background:var(--line)}
+.sk-row{display:flex;gap:12px;overflow:hidden}
+.sk-card{flex:0 0 124px;min-width:0}
+.sk-card .p{height:176px;border-radius:16px}
+.sk-card .b{height:12px;border-radius:6px;margin-top:10px;width:90%}
+.sk-card .b.s{width:55%;margin-top:7px}
+.grid .sk-card{flex:none}
+.grid .sk-card .p{height:156px}
+.sec{content-visibility:auto;contain-intrinsic-size:auto 300px}
 
 /* hero */
 .hero{display:flex;gap:10px;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;overscroll-behavior-x:contain}
