@@ -2,7 +2,7 @@
 
 /*
  * Flicksy-Download — web UI, same design as the Flicksy Mini App (floating bottom bar, header, hero, cards).
- * Data only through window.Api (api-client.js). Tabs: home, browse, schedule, top (search = header icon).
+ * Data only through window.Api (api-client.js). Tabs: home, browse, schedule, search.
  * Deep links kept: #title-<id> opens a title page. Language: Persian / English (saved in the browser).
  * Titles are always shown in English; Persian names stay searchable.
  */
@@ -34,6 +34,7 @@ const STR = {
     versions: n => `${n} نسخه`, noVersion: "هنوز نسخه\u200cای ثبت نشده است.", noLinkMovie: "هنوز لینکی برای این فیلم ثبت نشده است.",
     noSeasons: "برای این سریال هنوز فصل یا قسمتی ثبت نشده است.", noEps: "قسمتی برای این فصل ثبت نشده است.", season: n => `فصل ${n}`, episode: n => `قسمت ${n}`,
     unknown: "نامشخص", dups: "عنوان مشابه (ادغام نشده)", hidden: n => `${n} لینک نامعتبر (بدون http/https) نمایش داده نشد.`,
+    ftBot: "ربات تلگرام فلیکسی", ftAbout: "دربارهٔ سایت و منابع", ftCopy: "© Flicksy — همهٔ حقوق محفوظ است.",
     creditTmdb: "این محصول از API سایت TMDB استفاده می\u200cکند ولی توسط TMDB تأیید یا گواهی نشده است.",
     creditNote: "بخش «تازه\u200cها و ترندها» فقط عنوان\u200cهایی را نشان می\u200cدهد که در آرشیو ما فایل دارند. برای فهرست تماشا و پیگیری سریال\u200cها به",
     creditEnd: "سر بزن.", hardsub: "هاردساب فارسی", softsub: "زیرنویس فارسی", dubbed: "دوبله فارسی", langBtn: "EN"
@@ -58,6 +59,7 @@ const STR = {
     versions: n => `${n} version${n === 1 ? "" : "s"}`, noVersion: "No version listed yet.", noLinkMovie: "No link listed for this movie yet.",
     noSeasons: "No seasons or episodes listed for this series yet.", noEps: "No episodes listed for this season.", season: n => `Season ${n}`, episode: n => `Episode ${n}`,
     unknown: "Unknown", dups: "Similar title (not merged)", hidden: n => `${n} invalid link(s) (no http/https) not shown.`,
+    ftBot: "Flicksy Telegram bot", ftAbout: "About & credits", ftCopy: "© Flicksy — All rights reserved.",
     creditTmdb: "This product uses the TMDB API but is not endorsed or certified by TMDB.",
     creditNote: "The trending sections only show titles that have files in our archive. For your watchlist and series tracking, visit",
     creditEnd: ".", hardsub: "Persian hardsub", softsub: "Persian subtitles", dubbed: "Persian dub", langBtn: "FA"
@@ -125,6 +127,9 @@ const ICON = {
   search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
   chev: '<path d="m9 6 6 6-6 6"/>',
   back: '<path d="m15 6-6 6 6 6"/>',
+  down: '<path d="m6 9 6 6 6-6"/>',
+  tg: '<path d="M21 4 3 11l6 2 2 6 3-4 5 4z"/>',
+  ig: '<rect x="4" y="4" width="16" height="16" rx="5"/><circle cx="12" cy="12" r="3.6"/><circle cx="17" cy="7" r=".6"/>',
   share: '<path d="M12 15V3m0 0L8 7m4-4 4 4"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/>'
 };
 const svg = (n, cls) => `<svg class="ic ${cls || ""}" viewBox="0 0 24 24" aria-hidden="true">${ICON[n]}</svg>`;
@@ -190,7 +195,6 @@ const topbar = withSearch => `<header class="topbar"><div class="who"><span clas
   <div class="tb">${langBtn()}${withSearch ? `<a class="iconbtn" href="#search" aria-label="${esc(t("search"))}">${svg("search")}</a>` : ""}</div></header>`;
 const backBar = title => `<div class="back"><button class="iconbtn" data-act="back" aria-label="${esc(t("back"))}">${svg("back", "flip")}</button><h1>${esc(title || "")}</h1>${langBtn()}</div>`;
 const empty = (m, l, h) => `<div class="empty"><p>${esc(m)}</p>${l ? `<a class="btn" href="${h}">${esc(l)}</a>` : ""}</div>`;
-// loading skeletons: same shapes and spacing as the real page
 const skCard = () => `<div class="sk-card"><div class="p sk"></div><div class="b sk"></div><div class="b s sk"></div></div>`;
 const skel = n => `<div class="grid">${Array.from({ length: n || 6 }, skCard).join("")}</div>`;
 const skHome = () => `<div class="sk sk-hero"></div>` + [0, 1].map(() => `<div class="sk-sec"><div class="t sk"></div><i class="l"></i></div><div class="sk-row">${skCard().repeat(4)}</div>`).join("");
@@ -204,8 +208,16 @@ const skTitle = () => `<div class="sk sk-th"></div><div class="sk-head"><div cla
 const fail = () => `<div class="empty"><p>${esc(t("failed"))}</p><button class="btn" data-act="retry">${esc(t("retry"))}</button></div>`;
 
 function creditHTML() {
-  return `<div class="credit"><b>TMDB</b><span>${esc(t("creditTmdb"))}</span>` +
-    `<span>${esc(t("creditNote"))} <a href="https://t.me/flicksyrobot" target="_blank" rel="noopener">Flicksy</a>${esc(t("creditEnd") === "." ? "." : " " + t("creditEnd"))}</span></div>`;
+  const bot = "https://t.me/flicksyrobot";
+  return `<footer class="ft"><div class="ft-line"></div>` +
+    `<div class="ft-brand"><i class="av"></i><span>Flicksy</span></div>` +
+    `<nav class="ft-nav">${["home", "browse", "schedule", "top"].map(k => `<a href="#${k}">${esc(t(k))}</a>`).join("")}</nav>` +
+    `<a class="ft-bot" href="${bot}" target="_blank" rel="noopener">${svg("tg")}<span>${esc(t("ftBot"))}</span></a>` +
+    `<div class="ft-soc"><a href="https://t.me/flicksyapp" target="_blank" rel="noopener" aria-label="Telegram">${svg("tg")}</a>` +
+    `<a href="https://instagram.com/flicksyapp" target="_blank" rel="noopener" aria-label="Instagram">${svg("ig")}</a></div>` +
+    `<details class="ft-acc"><summary><span>${esc(t("ftAbout"))}</span>${svg("down")}</summary><div class="ft-b"><strong>TMDB</strong><span>${esc(t("creditTmdb"))}</span>` +
+    `<span>${esc(t("creditNote"))} <a href="${bot}" target="_blank" rel="noopener">Flicksy</a>${esc(t("creditEnd") === "." ? "." : " " + t("creditEnd"))}</span></div></details>` +
+    `<div class="ft-copy">${esc(t("ftCopy"))}</div></footer>`;
 }
 
 function put(html, tk, withCredit) {
