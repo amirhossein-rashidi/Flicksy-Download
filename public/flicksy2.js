@@ -190,7 +190,10 @@ const topbar = withSearch => `<header class="topbar"><div class="who"><span clas
   <div class="tb">${langBtn()}${withSearch ? `<a class="iconbtn" href="#search" aria-label="${esc(t("search"))}">${svg("search")}</a>` : ""}</div></header>`;
 const backBar = title => `<div class="back"><button class="iconbtn" data-act="back" aria-label="${esc(t("back"))}">${svg("back", "flip")}</button><h1>${esc(title || "")}</h1>${langBtn()}</div>`;
 const empty = (m, l, h) => `<div class="empty"><p>${esc(m)}</p>${l ? `<a class="btn" href="${h}">${esc(l)}</a>` : ""}</div>`;
-const skel = n => `<div class="grid">${Array.from({ length: n || 6 }, () => `<div><div class="p sk" style="height:150px"></div><div class="sk" style="height:11px;margin-top:9px;width:80%"></div></div>`).join("")}</div>`;
+// loading skeletons: same shapes and spacing as the real page
+const skCard = () => `<div class="sk-card"><div class="p sk"></div><div class="b sk"></div><div class="b s sk"></div></div>`;
+const skel = n => `<div class="grid">${Array.from({ length: n || 6 }, skCard).join("")}</div>`;
+const skHome = () => `<div class="sk sk-hero"></div>` + [0, 1].map(() => `<div class="sk-sec"><div class="t sk"></div><i class="l"></i></div><div class="sk-row">${skCard().repeat(4)}</div>`).join("");
 const fail = () => `<div class="empty"><p>${esc(t("failed"))}</p><button class="btn" data-act="retry">${esc(t("retry"))}</button></div>`;
 
 function creditHTML() {
@@ -237,9 +240,9 @@ function route(keepScroll) {
 /* ---------------- home ---------------- */
 
 function heroHTML(slides) {
-  return `<div class="hero" id="hero">${slides.map(s => `
+  return `<div class="hero" id="hero">${slides.map((s, i) => `
     <a class="slide" href="#title-${s.id}" style="background:${gradientFor(s.id, 7)}">
-      ${s.bg ? `<img data-fb="1" src="${esc(s.bg)}" alt="" decoding="async" referrerpolicy="no-referrer">` : ""}
+      ${s.bg ? `<img data-fb="1" ${i ? 'loading="lazy"' : 'fetchpriority="high"'} src="${esc(s.bg)}" alt="" decoding="async" referrerpolicy="no-referrer">` : ""}
       <div class="sl"><h2>${esc(s.title)}</h2><p>${esc(s.meta)}</p></div></a>`).join("")}</div>
     <div class="dots" id="dots">${slides.map(() => "<i></i>").join("")}</div>`;
 }
@@ -268,7 +271,7 @@ function initHero() {
 }
 
 async function vHome(R, tk) {
-  put(topbar(true) + `<div class="sk" style="height:210px;border-radius:22px"></div>${skel(3)}`, tk, false);
+  put(topbar(true) + skHome(), tk, false);
   try {
     const [tm, lm, ls, shelves] = await Promise.all([
       Api.tmdb(),
