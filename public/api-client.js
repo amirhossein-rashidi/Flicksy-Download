@@ -33,7 +33,7 @@
       const items = raw.map((r) => ({
         id: r[0], kind: r[1] === 0 ? 'movie' : 'series', title: r[2], titleFa: r[3], year: r[4], imdbScore: r[5], image: r[6],
         genreIds: r[7], genres: r[7].map((g) => gname[g]).filter(Boolean).join('، '), countries: r[8], linkCount: r[9],
-        _words: norm([r[2], r[3], r[10]].filter(Boolean).join(' ')).split(' '), _first: norm(r[2] || r[3] || ''),
+        _n: [r[2], r[3], r[10]],
       }));
       return items;
     })().catch((e) => { prepared = null; throw e; });
@@ -44,7 +44,9 @@
   // best IMDb score first among titles with a poster, a year and at least one link; 10.0 and ~50-genre announcement records are archive junk
   const ranked = (rows) => rows.filter((x) => x.image && x.year != null && x.imdbScore != null && x.imdbScore < 10 && x.linkCount > 0 && x.genreIds.length <= 15)
     .sort((a, b) => b.imdbScore - a.imdbScore || b.linkCount - a.linkCount || b.id - a.id);
-  const pub = (x) => { const o = Object.assign({}, x); delete o.genreIds; delete o._words; delete o._first; return o; };
+  const pub = (x) => { const o = Object.assign({}, x); delete o.genreIds; delete o._n; delete o._words; delete o._first; return o; };
+  // search keys are built only when someone searches (building them for ~30k titles on every page load made phones slow)
+  const prep = (x) => { if (!x._words) { x._words = norm(x._n.filter(Boolean).join(' ')).split(' '); x._first = norm(x._n[0] || x._n[1] || ''); } return x; };
   window.Api = {
     facets: async (s) => {
       const f = Object.assign({}, (await meta(s)).facets);
@@ -107,6 +109,7 @@
         const scored = [];
         for (const x of rows) {
           let ok = true;
+          prep(x);
           for (const t of terms) if (!x._words.some((w) => w.startsWith(t))) { ok = false; break; }
           if (ok) scored.push([x._first === terms.join(' ') ? 0 : x._first.startsWith(terms[0]) ? 1 : 2, x]);
         }
