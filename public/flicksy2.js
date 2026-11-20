@@ -194,6 +194,13 @@ const empty = (m, l, h) => `<div class="empty"><p>${esc(m)}</p>${l ? `<a class="
 const skCard = () => `<div class="sk-card"><div class="p sk"></div><div class="b sk"></div><div class="b s sk"></div></div>`;
 const skel = n => `<div class="grid">${Array.from({ length: n || 6 }, skCard).join("")}</div>`;
 const skHome = () => `<div class="sk sk-hero"></div>` + [0, 1].map(() => `<div class="sk-sec"><div class="t sk"></div><i class="l"></i></div><div class="sk-row">${skCard().repeat(4)}</div>`).join("");
+const skSec = () => `<div class="sk-sec"><div class="t sk"></div><i class="l"></i></div>`;
+const skRows = n => Array.from({ length: n }, () => skSec() + `<div class="sk-row">${skCard().repeat(4)}</div>`).join("");
+const skChips = () => `<div class="sk-chips">${[84, 104, 72, 96, 88, 110, 76, 92].map(w => `<div class="sk sk-chip" style="width:${w}px"></div>`).join("")}</div>`;
+const skTitle = () => `<div class="sk sk-th"></div><div class="sk-head"><div class="sk sk-pst"></div><div class="sk-hi"><div class="sk"></div><div class="sk s"></div></div></div>
+  <div class="sk sk-line" style="width:50%;margin-top:18px"></div><div class="sk sk-line"></div><div class="sk sk-line"></div><div class="sk sk-line" style="width:70%"></div>
+  ${skSec()}<div class="sk-row">${Array.from({ length: 5 }, () => `<div class="sk" style="flex:0 0 76px;height:76px;border-radius:50%"></div>`).join("")}</div>
+  ${skSec()}<div class="sk sk-acc"></div><div class="sk sk-acc"></div>`;
 const fail = () => `<div class="empty"><p>${esc(t("failed"))}</p><button class="btn" data-act="retry">${esc(t("retry"))}</button></div>`;
 
 function creditHTML() {
@@ -334,7 +341,7 @@ const rowTitle = r => (lang === "en" ? r.titleEn || titleCase(r.kicker) : r.titl
 const TOP_ROWS = new Set(["top-movie", "top-tv", "popular-movie", "popular-tv"]);
 
 async function vTop(R, tk) {
-  put(topbar(true) + `<div class="title">${esc(t("top"))}</div>${skel(3)}`, tk, false);
+  put(topbar(true) + `<div class="title">${esc(t("top"))}</div>${skRows(2)}`, tk, false);
   try {
     const [tm, top] = await Promise.all([Api.tmdb(), Api.top(24).catch(() => ({ items: [] }))]);
     if (tk !== token) return;
@@ -356,7 +363,7 @@ async function vTop(R, tk) {
 /* ---------------- browse (categories) ---------------- */
 
 async function vBrowse(R, tk) {
-  put(topbar(true) + `<div class="title">${esc(t("browse"))}</div>${skel(3)}`, tk, false);
+  put(topbar(true) + `<div class="title">${esc(t("browse"))}</div>${skSec() + skChips() + skSec() + skChips()}`, tk, false);
   try {
     if (!facets) facets = await Api.facets();
     const tm = await Api.tmdb();
@@ -447,7 +454,7 @@ function vSearch(R, tk) {
 let schedDay = 0;
 
 async function vSchedule(R, tk) {
-  put(topbar(true) + `<div class="title">${esc(t("schedTitle"))}</div>${skel(3)}`, tk, false);
+  put(topbar(true) + `<div class="title">${esc(t("schedTitle"))}</div><div class="sk-days">${Array.from({ length: 5 }, () => `<div class="sk sk-chip"></div>`).join("")}</div>${Array.from({ length: 4 }, () => `<div class="sk sk-sch"></div>`).join("")}`, tk, false);
   const tm = await Api.tmdb();
   if (tk !== token) return;
   const days = tm && tm.schedule ? tm.schedule.filter(d => d.items.length) : [];
@@ -569,7 +576,7 @@ function titleHTML(x, tm, cd) {
 }
 
 async function vTitle(R, tk) {
-  put(`<div class="sk" style="height:290px;margin:0 -16px"></div>${skel(3)}`, tk, false);
+  put(skTitle(), tk, false);
   try {
     const [r, tm, cd] = await Promise.all([Api.title(R.id), Api.tmdb(), loadCast()]);
     if (tk !== token) return;
