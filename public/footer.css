@@ -1,0 +1,21 @@
+/* Flicksy Download — page footer */
+.ft{margin-top:34px;display:grid;gap:18px;justify-items:center;text-align:center}
+.ft-line{height:1px;width:100%;background:linear-gradient(90deg,transparent,var(--line),transparent)}
+.ft-brand{display:flex;align-items:center;gap:10px;font-family:Manrope,"Vazirmatn",sans-serif;font-weight:800;font-size:18px}
+.ft-brand .av{width:34px;height:34px}
+.ft-nav{display:flex;flex-wrap:wrap;justify-content:center;gap:8px}
+.ft-nav a{padding:8px 14px;border-radius:99px;background:var(--surface);border:1px solid var(--line);font-size:13px}
+.ft-bot{display:inline-flex;align-items:center;gap:8px;padding:12px 22px;border-radius:99px;background:var(--grad);font-weight:700;font-size:14px;color:#fff}
+.ft-bot svg{width:18px;height:18px;stroke:#fff;fill:none;stroke-width:1.8}
+.ft-soc{display:flex;gap:12px}
+.ft-soc a{width:40px;height:40px;border-radius:50%;border:1px solid var(--line);display:grid;place-items:center}
+.ft-soc svg{width:18px;height:18px;stroke:#c4b5fd;fill:none;stroke-width:1.8}
+.ft-acc{width:100%;border-radius:16px;background:var(--surface);border:1px solid var(--line);text-align:start}
+.ft-acc summary{list-style:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center;padding:14px 16px;font-size:13px}
+.ft-acc summary::-webkit-details-marker{display:none}
+.ft-acc summary svg{width:16px;height:16px;stroke:var(--muted);fill:none;stroke-width:2;transition:transform .2s}
+.ft-acc[open] summary svg{transform:rotate(180deg)}
+.ft-b{display:grid;gap:6px;padding:0 16px 14px;font-size:12px;color:var(--muted);line-height:1.9}
+.ft-b strong{font-family:Manrope,"Vazirmatn",sans-serif;color:#01d277;font-size:13px;direction:ltr;text-align:start}
+.ft-b a{color:#c4b5fd;font-weight:700}
+.ft-copy{font-size:12px;color:var(--muted)}
