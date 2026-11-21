@@ -1,1 +1,6 @@
-https://dls2.aparatchi-dlcenter.top/DonyayeSerial/donyaye_serial_all_archive.html
+# هر خط یک صفحهٔ تک‌صفحه‌ای (آرشیو یک‌جا) است.
+# اول خط بنویس: آزاد یا ایران. بعد یک فاصله. بعد آدرس.
+# ایران = باید با سیستم خودت خوانده شود.
+
+ایران https://dls2.aparatchi-dlcenter.top/DonyayeSerial/donyaye_serial_all_archive.html
+ایران https://dls6.aparatchi-dlcenter.top/DonyayeSerial/10_thous.html
