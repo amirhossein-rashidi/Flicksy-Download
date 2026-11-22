@@ -37,6 +37,8 @@ LIMITS = {
 }
 # اگر نتیجهٔ جدید از این نسبت فایل‌های فعلی کمتر باشد، منتشر نمی‌شود
 MIN_KEEP_RATIO = 0.80
+# فایل بزرگ برای فرستادن به گیتهاب تکه‌تکه می‌شود (هر تکه حداکثر این‌قدر خط)
+CHUNK_LINES = 30000
 
 MODE_WORDS = {'آزاد': 'open', 'ازاد': 'open', 'open': 'open', 'ایران': 'iran', 'iran': 'iran'}
 
@@ -186,23 +188,84 @@ def existing_in_repo(name, token):
         raise
 
 
-def upload(name, text, count, token):
+def upload(name, text, count, token, check_shrink=True):
+    """یک فایل را می‌فرستد. True = فرستاده شد یا تغییری نبود، False = ایمنی متوقفش کرد."""
     sha, old = existing_in_repo(name, token)
     if old is not None:
         if old == text:
             log(name, ': unchanged, nothing to upload')
-            return
+            return True
         old_n = old.count('\n')
-        if count < old_n * MIN_KEEP_RATIO:
+        if check_shrink and count < old_n * MIN_KEEP_RATIO:
             log(name, ': SAFETY STOP - new scan has %d files but current has %d. NOT uploaded.' % (count, old_n))
             return False
+    path = '%s/%s' % (SCANS_DIR_IN_REPO, name)
     body = {'message': 'Scan update: %s (%d files)' % (name, count), 'branch': BRANCH,
             'content': base64.b64encode(text.encode('utf-8')).decode('ascii')}
-    if sha:
-        body['sha'] = sha
-    gh('PUT', '%s/%s' % (SCANS_DIR_IN_REPO, name), token, body)
-    log(name, ': uploaded (%d files)' % count)
-    return True
+    last = None
+    for attempt in range(4):
+        if sha:
+            body['sha'] = sha
+        else:
+            body.pop('sha', None)
+        try:
+            gh('PUT', path, token, body)
+            log(name, ': uploaded (%d files)' % count)
+            return True
+        except urllib.error.HTTPError as e:
+            if e.code not in (409, 500, 502, 503, 504):
+                raise
+            last = e
+        except (urllib.error.URLError, OSError) as e:
+            last = e
+        log(name, ': upload problem (%d/4): %s' % (attempt + 1, last))
+        time.sleep(5 * (attempt + 1))
+        try:
+            sha, cur = existing_in_repo(name, token)   # شاید خود فایل رسیده باشد
+            if cur == text:
+                log(name, ': uploaded (%d files)' % count)
+                return True
+        except (urllib.error.URLError, OSError) as e:
+            last = e
+    raise SystemExit('%s: upload failed after 4 attempts (%s)' % (name, last))
+
+
+def part_name(name, k):
+    """تکهٔ اول همان نام اصلی را دارد؛ تکهٔ k ام: scan-x-iran-p2.tsv"""
+    return name if k == 1 else '%s-p%d.tsv' % (name[:-4], k)
+
+
+def split_parts(text):
+    lines = text.splitlines(keepends=True)
+    return [''.join(lines[i:i + CHUNK_LINES]) for i in range(0, len(lines), CHUNK_LINES)] or ['']
+
+
+def upload_all(name, text, count, token):
+    """فایل را در چند تکهٔ کوچک می‌فرستد (فرستادن یک فایل خیلی بزرگ قطع می‌شد) و تکه‌های اضافهٔ قدیمی را پاک می‌کند."""
+    parts = split_parts(text)
+    pat = re.compile(r'^%s(-p\d+)?\.tsv$' % re.escape(name[:-4]))
+    listing = json.loads(gh('GET', SCANS_DIR_IN_REPO, token))
+    existing = {i['name']: i for i in listing if pat.match(i['name'])}
+    old_bytes = sum(i.get('size', 0) for i in existing.values())
+    new_bytes = len(text.encode('utf-8'))
+    if old_bytes and new_bytes < old_bytes * MIN_KEEP_RATIO:
+        log(name, ': SAFETY STOP - new scan is much smaller than the current one. NOT uploaded.')
+        return False
+    keep = set()
+    ok = True
+    for k, chunk in enumerate(parts, 1):
+        pn = part_name(name, k)
+        keep.add(pn)
+        log(name, ': part %d of %d' % (k, len(parts)))
+        if upload(pn, chunk, chunk.count('\n'), token, check_shrink=False) is False:
+            ok = False
+    if ok:
+        for n, i in sorted(existing.items()):
+            if n not in keep:
+                gh('DELETE', '%s/%s' % (SCANS_DIR_IN_REPO, n), token,
+                   {'message': 'Remove old scan part: %s' % n, 'branch': BRANCH, 'sha': i['sha']})
+                log(n, ': old part removed')
+    return ok
 
 
 # ------------------------------ اصلی ------------------------------
@@ -270,7 +333,7 @@ def main():
                 os.replace(p + '.tmp', p)
                 log(name, ': written (%d files)' % count)
         if a.upload:
-            if upload(name, text, count, token) is False:
+            if upload_all(name, text, count, token) is False:
                 failures += 1
     return 1 if failures else 0
 
