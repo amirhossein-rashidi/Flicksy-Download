@@ -35,6 +35,8 @@ const STR = {
     noSeasons: "برای این سریال هنوز فصل یا قسمتی ثبت نشده است.", noEps: "قسمتی برای این فصل ثبت نشده است.", season: n => `فصل ${n}`, episode: n => `قسمت ${n}`,
     unknown: "نامشخص", dups: "عنوان مشابه (ادغام نشده)", hidden: n => `${n} لینک نامعتبر (بدون http/https) نمایش داده نشد.`,
     ftBot: "ربات تلگرام فلیکسی", ftAbout: "دربارهٔ سایت و منابع", ftCopy: "© Flicksy — همهٔ حقوق محفوظ است.",
+    ftDesc: "آرشیو لینک دانلود فیلم و سریال، مکمل مینی\u200cاپ فلیکسی در تلگرام.", ftQuick: "دسترسی سریع", ftFollow: "ما را دنبال کنید",
+    sideSeries: "سریال\u200cها", sideMovies: "فیلم\u200cها", popular: "محبوب\u200cترین",
     creditTmdb: "این محصول از API سایت TMDB استفاده می\u200cکند ولی توسط TMDB تأیید یا گواهی نشده است.",
     creditNote: "بخش «تازه\u200cها و ترندها» فقط عنوان\u200cهایی را نشان می\u200cدهد که در آرشیو ما فایل دارند. برای فهرست تماشا و پیگیری سریال\u200cها به",
     creditEnd: "سر بزن.", hardsub: "هاردساب فارسی", softsub: "زیرنویس فارسی", dubbed: "دوبله فارسی", langBtn: "EN"
@@ -60,6 +62,8 @@ const STR = {
     noSeasons: "No seasons or episodes listed for this series yet.", noEps: "No episodes listed for this season.", season: n => `Season ${n}`, episode: n => `Episode ${n}`,
     unknown: "Unknown", dups: "Similar title (not merged)", hidden: n => `${n} invalid link(s) (no http/https) not shown.`,
     ftBot: "Flicksy Telegram bot", ftAbout: "About & credits", ftCopy: "© Flicksy — All rights reserved.",
+    ftDesc: "A download-link archive for movies and series, companion to the Flicksy Telegram mini app.", ftQuick: "Quick links", ftFollow: "Follow us",
+    sideSeries: "Series", sideMovies: "Movies", popular: "Popular",
     creditTmdb: "This product uses the TMDB API but is not endorsed or certified by TMDB.",
     creditNote: "The trending sections only show titles that have files in our archive. For your watchlist and series tracking, visit",
     creditEnd: ".", hardsub: "Persian hardsub", softsub: "Persian subtitles", dubbed: "Persian dub", langBtn: "FA"
@@ -209,15 +213,15 @@ const fail = () => `<div class="empty"><p>${esc(t("failed"))}</p><button class="
 
 function creditHTML() {
   const bot = "https://t.me/flicksyrobot";
-  return `<footer class="ft"><div class="ft-line"></div>` +
-    `<div class="ft-brand"><i class="av"></i><span>Flicksy</span></div>` +
-    `<nav class="ft-nav">${["home", "browse", "schedule", "top"].map(k => `<a href="#${k}">${esc(t(k))}</a>`).join("")}</nav>` +
-    `<a class="ft-bot" href="${bot}" target="_blank" rel="noopener">${svg("tg")}<span>${esc(t("ftBot"))}</span></a>` +
-    `<div class="ft-soc"><a href="https://t.me/flicksyapp" target="_blank" rel="noopener" aria-label="Telegram">${svg("tg")}</a>` +
-    `<a href="https://instagram.com/flicksyapp" target="_blank" rel="noopener" aria-label="Instagram">${svg("ig")}</a></div>` +
-    `<details class="ft-acc"><summary><span>${esc(t("ftAbout"))}</span>${svg("down")}</summary><div class="ft-b"><strong>TMDB</strong><span>${esc(t("creditTmdb"))}</span>` +
+  return `<footer class="ft"><div class="ft-line"></div><div class="ft-grid">` +
+    `<div class="ft-col ft-about"><div class="ft-brand"><i class="av"></i><span>Flicksy</span></div><p>${esc(t("ftDesc"))}</p>` +
+    `<a class="ft-bot" href="${bot}" target="_blank" rel="noopener">${svg("tg")}<span>${esc(t("ftBot"))}</span></a></div>` +
+    `<div class="ft-col"><h3>${esc(t("ftQuick"))}</h3><nav class="ft-nav">${["home", "browse", "schedule", "top"].map(k => `<a href="#${k}">${esc(t(k))}</a>`).join("")}</nav></div>` +
+    `<div class="ft-col"><h3>${esc(t("ftFollow"))}</h3><div class="ft-soc"><a href="https://t.me/flicksyapp" target="_blank" rel="noopener" aria-label="Telegram">${svg("tg")}</a>` +
+    `<a href="https://instagram.com/flicksyapp" target="_blank" rel="noopener" aria-label="Instagram">${svg("ig")}</a></div></div></div>` +
+    `<div class="ft-bar"><details class="ft-acc"><summary><span>${esc(t("ftAbout"))}</span>${svg("down")}</summary><div class="ft-b"><strong>TMDB</strong><span>${esc(t("creditTmdb"))}</span>` +
     `<span>${esc(t("creditNote"))} <a href="${bot}" target="_blank" rel="noopener">Flicksy</a>${esc(t("creditEnd") === "." ? "." : " " + t("creditEnd"))}</span></div></details>` +
-    `<div class="ft-copy">${esc(t("ftCopy"))}</div></footer>`;
+    `<div class="ft-copy">${esc(t("ftCopy"))}</div></div></footer>`;
 }
 
 function put(html, tk, withCredit) {
@@ -317,7 +321,7 @@ async function vHome(R, tk) {
       slides = f.items.map(toCard).map(c => ({ id: c.id, title: c.title, bg: c.image, meta: slideMeta(c) }));
     }
 
-    let html = topbar(true);
+    let html = topbar(true) + `<div class="hm"><div class="hm-main">`;
     if (slides.length) html += heroHTML(slides);
 
     if (tm && tm.rows) {
@@ -335,12 +339,34 @@ async function vHome(R, tk) {
     for (const s of shelves.shelves) {
       if (s.items.length >= 4) html += sec(t("topGenre")(genreName(s.genre.title)), row(s.items.map(toCard)), `#list?genre=${s.genre.id}`);
     }
+    html += `</div>` + (tm && tm.rows ? await sideHTML(tm) : "") + `</div>`;
     put(html, tk);
     initHero();
   } catch (e) {
     console.error(e);
     put(topbar(false) + fail(), tk, false);
   }
+}
+
+// desktop sidebar (hidden on phones): series and movies panels, each with two tabs, built from the existing TMDB lists
+async function sideHTML(tm) {
+  const panel = async (title, keys) => {
+    const tabs = [];
+    for (const [key, label] of keys) {
+      const r = tm.rows.find(x => x.key === key);
+      const cards = r ? (await Api.resolve(r.items)).map(toCard).slice(0, 5) : [];
+      if (cards.length >= 3) tabs.push({ label, cards, href: `#list?row=${enc(key)}` });
+    }
+    if (!tabs.length) return "";
+    const item = (c, i) => i === 0
+      ? `<a class="sb-big" href="#title-${c.id}"><div class="p" style="background:${gradientFor(c.id)}">${posterInner(c)}</div><div class="cap"><b>${esc(c.title)}</b><small>${[typ(c.type), c.year && num(c.year), c.rating && "★ " + num(c.rating)].filter(Boolean).join(sep())}</small></div></a>`
+      : `<a class="sb-it" href="#title-${c.id}"><div class="p" style="background:${gradientFor(c.id)}">${posterInner(c)}</div><div class="cap"><b>${esc(c.title)}</b><small>${[c.year && num(c.year), c.rating && "★ " + num(c.rating)].filter(Boolean).join(sep())}</small></div></a>`;
+    return `<section class="sb"><h3>${esc(title)}</h3><div class="sb-tabs">${tabs.map((x, i) => `<button class="${i ? "" : "on"}" data-act="side" data-i="${i}">${esc(x.label)}</button>`).join("")}</div>` +
+      tabs.map((x, i) => `<div class="sb-pane${i ? "" : " on"}">${x.cards.map(item).join("")}<a class="sb-all" href="${x.href}">${esc(t("more"))}</a></div>`).join("") + `</section>`;
+  };
+  const a = await panel(t("sideSeries"), [["popular-tv", t("popular")], ["top-tv", t("top")]]);
+  const b = await panel(t("sideMovies"), [["popular-movie", t("popular")], ["top-movie", t("top")]]);
+  return a || b ? `<aside class="hm-side">${a}${b}</aside>` : "";
 }
 
 // network card: the network's own logo (white, one colour); the name shows if there is no logo or it fails to load
@@ -619,6 +645,11 @@ document.addEventListener("click", e => {
     const data = { title: document.title, url: location.href };
     if (navigator.share) navigator.share(data).catch(() => {});
     else if (navigator.clipboard) navigator.clipboard.writeText(location.href).then(() => toast(t("copied")), () => {});
+  }
+  else if (k === "side") {
+    const box = b.closest(".sb"), i = Number(b.dataset.i);
+    box.querySelectorAll(".sb-tabs button").forEach((x, j) => x.classList.toggle("on", j === i));
+    box.querySelectorAll(".sb-pane").forEach((x, j) => x.classList.toggle("on", j === i));
   }
   else if (k === "day") { schedDay = Number(b.dataset.d); window.__draw && window.__draw(); }
   else if (k === "season") {
