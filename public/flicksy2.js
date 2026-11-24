@@ -37,6 +37,7 @@ const STR = {
     ftBot: "ربات تلگرام فلیکسی", ftAbout: "دربارهٔ سایت و منابع", ftCopy: "© Flicksy — همهٔ حقوق محفوظ است.",
     fMovies: "دانلود فیلم", fSeries: "دانلود سریال", fStreamM: "پخش آنلاین فیلم\u200cها", fStreamS: "پخش آنلاین سریال\u200cها",
     fTopM: "۲۵۰ فیلم برتر تاریخ", fTopS: "۲۵۰ سریال برتر تاریخ", fBox: "باکس آفیس", fFaq: "سوالات متداول", fTerms: "قوانین و مقررات", fDmca: "DMCA POLICY",
+    gDl: "دانلود و پخش", gHelp: "پشتیبانی",
     soon: "به\u200cزودی", soonNote: "این صفحه به\u200cزودی تکمیل می\u200cشود.",
     sideSeries: "سریال\u200cها", sideMovies: "فیلم\u200cها", popular: "محبوب\u200cترین",
     creditTmdb: "این محصول از API سایت TMDB استفاده می\u200cکند ولی توسط TMDB تأیید یا گواهی نشده است.",
@@ -66,6 +67,7 @@ const STR = {
     ftBot: "Flicksy Telegram bot", ftAbout: "About & credits", ftCopy: "© Flicksy — All rights reserved.",
     fMovies: "Download movies", fSeries: "Download series", fStreamM: "Watch movies online", fStreamS: "Watch series online",
     fTopM: "Top 250 movies of all time", fTopS: "Top 250 series of all time", fBox: "Box office", fFaq: "FAQ", fTerms: "Terms & conditions", fDmca: "DMCA POLICY",
+    gDl: "Download & watch", gHelp: "Support",
     soon: "Coming soon", soonNote: "This page will be completed soon.",
     sideSeries: "Series", sideMovies: "Movies", popular: "Popular",
     creditTmdb: "This product uses the TMDB API but is not endorsed or certified by TMDB.",
@@ -226,9 +228,17 @@ const FOOTER_LINKS = [
   ["box-office", "fBox"], ["faq", "fFaq"], ["terms", "fTerms"], ["dmca", "fDmca"], ["about", "ftAbout"]
 ];
 
+const FOOTER_GROUPS = [
+  ["gDl", ["movies", "series", "stream-movies", "stream-series"]],
+  ["top", ["top250-movies", "top250-series", "box-office"]],
+  ["gHelp", ["faq", "terms", "dmca", "about"]]
+];
+
 function creditHTML() {
-  return `<footer class="ft"><div class="ft-line"></div><div class="ft-row"><div class="ft-copy">${esc(t("ftCopy"))}</div>` +
-    `<nav class="ft-links">${FOOTER_LINKS.map(l => `<a href="${l[2] || "#page-" + l[0]}">${esc(t(l[1]))}</a>`).join("")}</nav></div></footer>`;
+  const link = k => { const l = FOOTER_LINKS.find(x => x[0] === k); return `<a href="${l[2] || "#page-" + l[0]}">${esc(t(l[1]))}</a>`; };
+  return `<footer class="ft"><div class="ft-line"></div><nav class="ft-cols">` +
+    FOOTER_GROUPS.map(g => `<div class="ft-col"><h3>${esc(t(g[0]))}</h3>${g[1].map(link).join("")}</div>`).join("") +
+    `</nav><div class="ft-copy">${esc(t("ftCopy"))}</div></footer>`;
 }
 
 function put(html, tk, withCredit) {
@@ -305,11 +315,10 @@ function initHero() {
 async function vHome(R, tk) {
   put(topbar(true) + skHome(), tk, false);
   try {
-    const [tm, lm, ls, shelves] = await Promise.all([
+    const [tm, lm, ls] = await Promise.all([
       Api.tmdb(),
       Api.titles({ kind: "movie", limit: 14 }),
-      Api.titles({ kind: "series", limit: 14 }),
-      Api.shelves(4, 12).catch(() => ({ shelves: [] }))
+      Api.titles({ kind: "series", limit: 14 })
     ]);
     if (tk !== token) return;
     if (!facets) facets = await Api.facets().catch(() => null);
@@ -341,13 +350,11 @@ async function vHome(R, tk) {
       }
     }
     if (tm && tm.networks && tm.networks.length) {
-      html += sec(t("networks"), `<div class="row">${tm.networks.map(n => `<a class="net" style="background:${gradientFor(n.id)}" href="#list?net=${n.id}" aria-label="${esc(n.name)}">${netInner(n)}</a>`).join("")}</div>`);
+      // phones: a row inside the page; desktop: the same tiles live in the sidebar (desktop.css hides this one)
+      html += sec(t("networks"), `<div class="row">${tm.networks.map(netTile).join("")}</div>`).replace('<section class="sec">', '<section class="sec sec-net">');
     }
     html += sec(t("latestMovies"), row(lm.items.map(toCard)), "#list?kind=movie");
     html += sec(t("latestSeries"), row(ls.items.map(toCard)), "#list?kind=series");
-    for (const s of shelves.shelves) {
-      if (s.items.length >= 4) html += sec(t("topGenre")(genreName(s.genre.title)), row(s.items.map(toCard)), `#list?genre=${s.genre.id}`);
-    }
     html += `</div>` + (tm && tm.rows ? await sideHTML(tm) : "") + `</div>`;
     put(html, tk);
     initHero();
@@ -375,10 +382,12 @@ async function sideHTML(tm) {
   };
   const a = await panel(t("sideSeries"), [["popular-tv", t("popular")], ["top-tv", t("top")]]);
   const b = await panel(t("sideMovies"), [["popular-movie", t("popular")], ["top-movie", t("top")]]);
-  return a || b ? `<aside class="hm-side">${a}${b}</aside>` : "";
+  const c = tm.networks && tm.networks.length ? `<section class="sb sb-net"><h3>${esc(t("networks"))}</h3><div class="sb-nets">${tm.networks.map(netTile).join("")}</div></section>` : "";
+  return a || b || c ? `<aside class="hm-side">${a}${b}${c}</aside>` : "";
 }
 
 // network card: the network's own logo (white, one colour); the name shows if there is no logo or it fails to load
+const netTile = n => `<a class="net" style="background:${gradientFor(n.id)}" href="#list?net=${n.id}" aria-label="${esc(n.name)}">${netInner(n)}</a>`;
 const netInner = n => { const u = safeURL(n.logo); return u ? `<img data-fb="1" src="${esc(u)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer"><span class="fb" hidden>${esc(n.name)}</span>` : esc(n.name); };
 const titleCase = s => String(s || "").toLowerCase().replace(/\b[a-z]/g, c => c.toUpperCase());
 const rowTitle = r => (lang === "en" ? r.titleEn || titleCase(r.kicker) : r.title);
