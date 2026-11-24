@@ -35,7 +35,9 @@ const STR = {
     noSeasons: "برای این سریال هنوز فصل یا قسمتی ثبت نشده است.", noEps: "قسمتی برای این فصل ثبت نشده است.", season: n => `فصل ${n}`, episode: n => `قسمت ${n}`,
     unknown: "نامشخص", dups: "عنوان مشابه (ادغام نشده)", hidden: n => `${n} لینک نامعتبر (بدون http/https) نمایش داده نشد.`,
     ftBot: "ربات تلگرام فلیکسی", ftAbout: "دربارهٔ سایت و منابع", ftCopy: "© Flicksy — همهٔ حقوق محفوظ است.",
-    ftDesc: "آرشیو لینک دانلود فیلم و سریال، مکمل مینی\u200cاپ فلیکسی در تلگرام.", ftQuick: "دسترسی سریع", ftFollow: "ما را دنبال کنید",
+    fMovies: "دانلود فیلم", fSeries: "دانلود سریال", fStreamM: "پخش آنلاین فیلم\u200cها", fStreamS: "پخش آنلاین سریال\u200cها",
+    fTopM: "۲۵۰ فیلم برتر تاریخ", fTopS: "۲۵۰ سریال برتر تاریخ", fBox: "باکس آفیس", fFaq: "سوالات متداول", fTerms: "قوانین و مقررات", fDmca: "DMCA POLICY",
+    soon: "به\u200cزودی", soonNote: "این صفحه به\u200cزودی تکمیل می\u200cشود.",
     sideSeries: "سریال\u200cها", sideMovies: "فیلم\u200cها", popular: "محبوب\u200cترین",
     creditTmdb: "این محصول از API سایت TMDB استفاده می\u200cکند ولی توسط TMDB تأیید یا گواهی نشده است.",
     creditNote: "بخش «تازه\u200cها و ترندها» فقط عنوان\u200cهایی را نشان می\u200cدهد که در آرشیو ما فایل دارند. برای فهرست تماشا و پیگیری سریال\u200cها به",
@@ -62,7 +64,9 @@ const STR = {
     noSeasons: "No seasons or episodes listed for this series yet.", noEps: "No episodes listed for this season.", season: n => `Season ${n}`, episode: n => `Episode ${n}`,
     unknown: "Unknown", dups: "Similar title (not merged)", hidden: n => `${n} invalid link(s) (no http/https) not shown.`,
     ftBot: "Flicksy Telegram bot", ftAbout: "About & credits", ftCopy: "© Flicksy — All rights reserved.",
-    ftDesc: "A download-link archive for movies and series, companion to the Flicksy Telegram mini app.", ftQuick: "Quick links", ftFollow: "Follow us",
+    fMovies: "Download movies", fSeries: "Download series", fStreamM: "Watch movies online", fStreamS: "Watch series online",
+    fTopM: "Top 250 movies of all time", fTopS: "Top 250 series of all time", fBox: "Box office", fFaq: "FAQ", fTerms: "Terms & conditions", fDmca: "DMCA POLICY",
+    soon: "Coming soon", soonNote: "This page will be completed soon.",
     sideSeries: "Series", sideMovies: "Movies", popular: "Popular",
     creditTmdb: "This product uses the TMDB API but is not endorsed or certified by TMDB.",
     creditNote: "The trending sections only show titles that have files in our archive. For your watchlist and series tracking, visit",
@@ -139,8 +143,11 @@ const ICON = {
 const svg = (n, cls) => `<svg class="ic ${cls || ""}" viewBox="0 0 24 24" aria-hidden="true">${ICON[n]}</svg>`;
 
 function renderNav() {
-  nav.innerHTML = ["home", "browse", "schedule", "top"].map(k =>
-    `<a href="#${k}" data-tab="${k}" aria-label="${esc(t(k))}" class="${k === lastTab ? "on" : ""}">${svg(k)}<span>${esc(t(k))}</span></a>`).join("");
+  // phone: the floating bottom bar (tabs only). Desktop: one top bar, brand on the start side, tabs in the middle, language + search on the end side (desktop.css)
+  nav.innerHTML = `<a class="nav-brand" href="#home" aria-label="Flicksy"><i class="av"></i><div><small>${esc(t("sub"))}</small><b>Flicksy</b></div></a>` +
+    `<div class="nav-links">${["home", "browse", "schedule", "top"].map(k =>
+      `<a href="#${k}" data-tab="${k}" aria-label="${esc(t(k))}" class="${k === lastTab ? "on" : ""}">${svg(k)}<span>${esc(t(k))}</span></a>`).join("")}</div>` +
+    `<div class="nav-tools">${langBtn()}<a class="iconbtn" href="#search" aria-label="${esc(t("search"))}">${svg("search")}</a></div>`;
 }
 
 function safeURL(value) {
@@ -211,17 +218,17 @@ const skTitle = () => `<div class="sk sk-th"></div><div class="sk-head"><div cla
   ${skSec()}<div class="sk sk-acc"></div><div class="sk sk-acc"></div>`;
 const fail = () => `<div class="empty"><p>${esc(t("failed"))}</p><button class="btn" data-act="retry">${esc(t("retry"))}</button></div>`;
 
+// footer links: [page key, label key, optional real address]. Pages that are not written yet show "coming soon".
+const FOOTER_LINKS = [
+  ["movies", "fMovies", "#list?kind=movie"], ["series", "fSeries", "#list?kind=series"],
+  ["stream-movies", "fStreamM"], ["stream-series", "fStreamS"],
+  ["top250-movies", "fTopM"], ["top250-series", "fTopS"],
+  ["box-office", "fBox"], ["faq", "fFaq"], ["terms", "fTerms"], ["dmca", "fDmca"], ["about", "ftAbout"]
+];
+
 function creditHTML() {
-  const bot = "https://t.me/flicksyrobot";
-  return `<footer class="ft"><div class="ft-line"></div><div class="ft-grid">` +
-    `<div class="ft-col ft-about"><div class="ft-brand"><i class="av"></i><span>Flicksy</span></div><p>${esc(t("ftDesc"))}</p>` +
-    `<a class="ft-bot" href="${bot}" target="_blank" rel="noopener">${svg("tg")}<span>${esc(t("ftBot"))}</span></a></div>` +
-    `<div class="ft-col"><h3>${esc(t("ftQuick"))}</h3><nav class="ft-nav">${["home", "browse", "schedule", "top"].map(k => `<a href="#${k}">${esc(t(k))}</a>`).join("")}</nav></div>` +
-    `<div class="ft-col"><h3>${esc(t("ftFollow"))}</h3><div class="ft-soc"><a href="https://t.me/flicksyapp" target="_blank" rel="noopener" aria-label="Telegram">${svg("tg")}</a>` +
-    `<a href="https://instagram.com/flicksyapp" target="_blank" rel="noopener" aria-label="Instagram">${svg("ig")}</a></div></div></div>` +
-    `<div class="ft-bar"><details class="ft-acc"><summary><span>${esc(t("ftAbout"))}</span>${svg("down")}</summary><div class="ft-b"><strong>TMDB</strong><span>${esc(t("creditTmdb"))}</span>` +
-    `<span>${esc(t("creditNote"))} <a href="${bot}" target="_blank" rel="noopener">Flicksy</a>${esc(t("creditEnd") === "." ? "." : " " + t("creditEnd"))}</span></div></details>` +
-    `<div class="ft-copy">${esc(t("ftCopy"))}</div></div></footer>`;
+  return `<footer class="ft"><div class="ft-line"></div><div class="ft-row"><div class="ft-copy">${esc(t("ftCopy"))}</div>` +
+    `<nav class="ft-links">${FOOTER_LINKS.map(l => `<a href="${l[2] || "#page-" + l[0]}">${esc(t(l[1]))}</a>`).join("")}</nav></div></footer>`;
 }
 
 function put(html, tk, withCredit) {
@@ -245,6 +252,8 @@ function parseHash() {
   const h = decodeURIComponent(location.hash.replace(/^#/, ""));
   const m = h.match(/^title-(\d+)$/);
   if (m) return { r: "title", id: Number(m[1]) };
+  const pg = h.match(/^page-([a-z0-9-]+)$/);
+  if (pg && FOOTER_LINKS.some(l => l[0] === pg[1])) return { r: "page", key: pg[1] };
   if (h.startsWith("list?")) return { r: "list", p: new URLSearchParams(h.slice(5)) };
   return { r: ["browse", "schedule", "search", "top"].includes(h) ? h : "home" };
 }
@@ -253,10 +262,10 @@ function route(keepScroll) {
   const R = parseHash(), tk = ++token;
   clearInterval(timer);
   if (["home", "browse", "schedule", "top"].includes(R.r)) lastTab = R.r;
-  else if (R.r === "search") lastTab = "";
+  else if (R.r === "search" || R.r === "page") lastTab = "";
   renderNav();
   document.title = "Flicksy | " + t("sub");
-  ({ home: vHome, browse: vBrowse, schedule: vSchedule, search: vSearch, top: vTop, list: vList, title: vTitle }[R.r])(R, tk);
+  ({ home: vHome, browse: vBrowse, schedule: vSchedule, search: vSearch, top: vTop, list: vList, title: vTitle, page: vPage }[R.r])(R, tk);
   if (keepScroll !== true) window.scrollTo(0, 0);
 }
 
@@ -515,6 +524,17 @@ async function vSchedule(R, tk) {
   put(topbar(true) + `<div class="title">${esc(t("schedTitle"))}</div><p class="note" style="margin:-6px 0 12px">${esc(t("schedNote"))}</p><div class="days" id="days"></div><div id="sr"></div>`, tk);
   window.__draw = () => { draw(); };
   draw();
+}
+
+/* ---------------- footer pages (content comes later) ---------------- */
+
+function vPage(R, tk) {
+  const l = FOOTER_LINKS.find(x => x[0] === R.key), title = t(l[1]);
+  document.title = `${title} | Flicksy`;
+  const body = R.key === "about"
+    ? `<div class="ft-b"><strong>TMDB</strong><span>${esc(t("creditTmdb"))}</span><span>${esc(t("creditNote"))} <a href="https://t.me/flicksyrobot" target="_blank" rel="noopener">Flicksy</a>${esc(t("creditEnd") === "." ? "." : " " + t("creditEnd"))}</span></div>`
+    : "";
+  put(backBar(title) + `<div class="empty"><p><b>${esc(t("soon"))}</b></p><p>${esc(t("soonNote"))}</p></div>${body}<a class="btn ghost" href="#home">${esc(t("backHome"))}</a>`, tk);
 }
 
 /* ---------------- title page ---------------- */
