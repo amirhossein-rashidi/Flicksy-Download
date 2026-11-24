@@ -81,6 +81,9 @@
   .sb-it .cap b{display:block;font-size:14px;font-family:Manrope,"Vazirmatn",sans-serif;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
   .sb .cap small{display:block;font-size:12px;color:var(--muted);margin-top:3px}
   .sb-big .cap small{color:#cfcfe6}
+  .sb-nets{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+  .sb-nets .net{height:64px}
+  .sec-net{display:none}
   .sb-all{text-align:center;padding:9px;border-radius:12px;font-size:13px;font-weight:700;color:#c4b5fd;border:1px solid var(--line)}
   .sb-all:hover{background:var(--surface-2)}
 
@@ -93,9 +96,8 @@
   .gline,.ov,.textbtn{max-width:900px}
   .dl:hover{border-color:rgba(167,139,250,.5)}
 
-  /* footer: copyright on the start side, links list on the end side */
-  .ft{margin-top:56px}
-  .ft-row{grid-template-columns:auto auto;justify-content:space-between;align-items:start;justify-items:stretch;padding-bottom:12px}
-  .ft-copy{order:0;text-align:start;white-space:nowrap}
-  .ft-links{grid-template-columns:repeat(2,max-content);gap:14px 64px}
+  /* footer: three link columns, copyright under them on the start side */
+  .ft{margin-top:56px;gap:28px;padding-bottom:12px}
+  .ft-cols{grid-template-columns:repeat(3,max-content);justify-content:space-between;gap:20px 80px}
+  .ft-copy{text-align:start}
 }
