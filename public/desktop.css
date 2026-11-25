@@ -87,13 +87,21 @@
   .sb-all{text-align:center;padding:9px;border-radius:12px;font-size:13px;font-weight:700;color:#c4b5fd;border:1px solid var(--line)}
   .sb-all:hover{background:var(--surface-2)}
 
-  /* title page */
+  /* title page: poster + details on one side, text + downloads on the other */
   .th{margin:0;height:380px;border-radius:24px}
   .rb.s{inset-inline-start:20px}.rb.e{inset-inline-end:20px}
-  .head{margin-top:-120px;padding:0 28px}
-  .pst{width:170px;height:255px}
+  .tp{display:grid;grid-template-columns:260px minmax(0,1fr);grid-template-areas:"pst hi" "pst gl" "pst ov" "pst bt" "fx ca" "fx dl";grid-template-rows:auto auto auto 1fr auto auto;column-gap:36px;margin-top:-150px;position:relative;z-index:2;padding:0 28px}
+  .head{display:contents}
+  .pst{grid-area:pst;width:260px;height:auto;aspect-ratio:2/3}
+  .hi{grid-area:hi;padding-top:84px}
   .hi h1{font-size:34px}
-  .gline,.ov,.textbtn{max-width:900px}
+  .gline{grid-area:gl}
+  .ov{grid-area:ov}
+  .textbtn{grid-area:bt;justify-self:start;align-self:start}
+  .tp-cast{grid-area:ca}
+  .tp-facts{grid-area:fx}
+  .tp-dl{grid-area:dl}
+  .tp-facts .sec{margin-top:26px}
   .dl:hover{border-color:rgba(167,139,250,.5)}
 
   /* footer: three link columns, copyright under them on the start side */
