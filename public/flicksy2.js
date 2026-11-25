@@ -631,15 +631,15 @@ function titleHTML(x, tm, cd) {
   return `<div class="th${bd ? "" : " bl"}" style="background:${gradientFor(c.id, 3)}">${heroImg ? `<img data-fb="1" src="${esc(heroImg)}" alt="" referrerpolicy="no-referrer">` : ""}
       <button class="rb s" data-act="back" aria-label="${esc(t("back"))}">${svg("back", "flip")}</button>
       <button class="rb e" data-act="share" aria-label="${esc(t("share"))}">${svg("share")}</button></div>
-    <div class="head"><div class="pst p" style="background:${gradientFor(c.id)}">${posterInner(c)}</div>
+    <div class="tp"><div class="head"><div class="pst p" style="background:${gradientFor(c.id)}">${posterInner(c)}</div>
       <div class="hi"><h1>${esc(c.title)}</h1>
       <div class="meta"><span class="pill">${typ(x.kind)}</span>${x.year ? `<span>${num(x.year)}</span>` : ""}${length ? `<span>${esc(length)}</span>` : ""}${c.rating ? `<span class="star">★ ${esc(num(c.rating))}</span>` : ""}</div></div></div>
     ${genres.length ? `<div class="gline">${genres.map(g => `<a href="#list?kind=${x.kind}&genre=${g.id}">${esc(genreName(g.title))}</a>`).join(" · ")}</div>` : ""}
     <p class="ov" id="ov" dir="auto">${esc(overviewOf(x, cd) || t("noSynopsis"))}</p>
     <button class="textbtn" data-act="ov">${esc(t("readMore"))} ${lang === "fa" ? "‹" : "›"}</button>
-    ${castSec}
-    ${facts.length ? sec(t("specs"), `<div class="facts">${facts.map(f => `<div class="fact"><span>${esc(f[0])}</span><strong dir="auto">${esc(f[1])}</strong></div>`).join("")}</div>${dups}`) : dups}
-    ${sec(isMovie ? t("dlMovie") : t("dlSeries"), `${downloads}${hidden}<p class="note">${esc(t("statusNote"))}</p>`)}`;
+    <div class="tp-cast">${castSec}</div>
+    <div class="tp-facts">${facts.length ? sec(t("specs"), `<div class="facts">${facts.map(f => `<div class="fact"><span>${esc(f[0])}</span><strong dir="auto">${esc(f[1])}</strong></div>`).join("")}</div>${dups}`) : dups}</div>
+    <div class="tp-dl">${sec(isMovie ? t("dlMovie") : t("dlSeries"), `${downloads}${hidden}<p class="note">${esc(t("statusNote"))}</p>`)}</div></div>`;
 }
 
 async function vTitle(R, tk) {
